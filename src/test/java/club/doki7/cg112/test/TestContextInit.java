@@ -1,3 +1,5 @@
+package club.doki7.cg112.test;
+
 import club.doki7.cg112.exc.RenderException;
 import club.doki7.cg112.vk.RenderConfig;
 import club.doki7.cg112.vk.RenderContext;
