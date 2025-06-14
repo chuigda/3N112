@@ -14,7 +14,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.ref.Cleaner;
 
-public final class Swapchain implements IDisposable {
+public final class Swapchain implements AutoCloseable {
     public final RenderContext cx;
 
     public final VkSurfaceFormatKHR surfaceFormat;
@@ -87,7 +87,7 @@ public final class Swapchain implements IDisposable {
     }
 
     @Override
-    public void dispose() {
+    public void close() {
         this.cleanable.clean();
     }
 

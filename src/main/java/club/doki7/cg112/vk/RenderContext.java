@@ -19,7 +19,7 @@ import java.lang.ref.Cleaner;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public final class RenderContext {
+public final class RenderContext implements AutoCloseable {
     public final Arena prefabArena;
     public final RenderConfig config;
     public final VkStaticCommands sCmd;
@@ -163,7 +163,7 @@ public final class RenderContext {
             this.computeQueueLock = null;
         }
 
-        final RenderContextCleanup cleanup = new RenderContextCleanup(
+        RenderContextCleanup cleanup = new RenderContextCleanup(
                 iCmd,
                 dCmd,
                 vma,
@@ -186,7 +186,7 @@ public final class RenderContext {
                 computeCommandPool,
                 computeOnceCommandPool
         );
-        cleaner.register(this, cleanup::dispose);
+        cleanable = cleaner.register(this, cleanup::dispose);
     }
 
     public boolean hasTransferQueue() {
@@ -229,5 +229,11 @@ public final class RenderContext {
         return new ContextInit(glfw, window, config).init();
     }
 
+    @Override
+    public void close() {
+        this.cleanable.clean();
+    }
+
+    private final Cleaner.Cleanable cleanable;
     private static final Cleaner cleaner = Cleaner.create();
 }

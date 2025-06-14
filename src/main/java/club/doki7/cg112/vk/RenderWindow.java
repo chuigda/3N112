@@ -16,7 +16,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.ref.Cleaner;
 
-public final class RenderWindow {
+public final class RenderWindow implements AutoCloseable {
     public final GLFW glfw;
     public final GLFWwindow rawWindow;
     public int width;
@@ -54,7 +54,7 @@ public final class RenderWindow {
             glfw.setFramebufferSizeCallback(rawWindow, pfn);
 
             RenderWindowCleanup cleanup = new RenderWindowCleanup(glfw, rawWindow);
-            clenaer.register(this, cleanup::dispose);
+            cleanable = cleaner.register(this, cleanup::dispose);
         } catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException("找不到回调函数 RenderWindow::framebufferSizeCallback", e);
         }
@@ -82,5 +82,11 @@ public final class RenderWindow {
         framebufferResized = true;
     }
 
-    private static final Cleaner clenaer = Cleaner.create();
+    @Override
+    public void close() {
+        cleanable.clean();
+    }
+
+    private final Cleaner.Cleanable cleanable;
+    private static final Cleaner cleaner = Cleaner.create();
 }

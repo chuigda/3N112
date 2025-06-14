@@ -35,8 +35,6 @@ public final class Main {
             applicationStart();
         } catch (Throwable e) {
             e.printStackTrace(System.err);
-        } finally {
-            System.gc();
         }
     }
 
@@ -61,7 +59,7 @@ public final class Main {
         while (window.tick()) {
             if (window.framebufferResized) {
                 cx.waitDeviceIdle();
-                swapchain.dispose();
+                swapchain.close();
                 swapchain = Swapchain.create(cx, window.width, window.height);
                 window.framebufferResized = false;
             }
@@ -112,5 +110,8 @@ public final class Main {
             }
         }
         cx.waitDeviceIdle();
+
+        cx.close();
+        window.close();
     }
 }
