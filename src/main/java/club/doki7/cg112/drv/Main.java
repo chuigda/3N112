@@ -12,9 +12,14 @@ import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.glfw.GLFW;
 import club.doki7.glfw.GLFWLoader;
 import club.doki7.vulkan.VkConstants;
+import club.doki7.vulkan.bitmask.VkAccessFlags;
+import club.doki7.vulkan.bitmask.VkImageAspectFlags;
+import club.doki7.vulkan.bitmask.VkPipelineStageFlags;
 import club.doki7.vulkan.command.VulkanLoader;
 import club.doki7.vulkan.datatype.VkCommandBufferBeginInfo;
+import club.doki7.vulkan.datatype.VkImageMemoryBarrier;
 import club.doki7.vulkan.datatype.VkSubmitInfo;
+import club.doki7.vulkan.enumtype.VkImageLayout;
 import club.doki7.vulkan.enumtype.VkResult;
 import club.doki7.vulkan.handle.VkCommandBuffer;
 import club.doki7.vulkan.handle.VkFence;
@@ -54,8 +59,24 @@ public final class Main {
         IntPtr pImageIndex = IntPtr.allocate(cx.prefabArena);
         VkCommandBufferBeginInfo cmdBufBeginInfo = VkCommandBufferBeginInfo.allocate(cx.prefabArena);
         VkSubmitInfo submitInfo = VkSubmitInfo.allocate(cx.prefabArena)
+                .waitSemaphoreCount(1)
+                .pWaitDstStageMask(IntPtr.allocateV(cx.prefabArena, VkPipelineStageFlags.TOP_OF_PIPE))
                 .commandBufferCount(1)
                 .signalSemaphoreCount(1);
+        VkImageMemoryBarrier imageMemoryBarrier = VkImageMemoryBarrier.allocate(cx.prefabArena)
+                .srcAccessMask(0)
+                .dstAccessMask(VkAccessFlags.COLOR_ATTACHMENT_WRITE)
+                .oldLayout(VkImageLayout.UNDEFINED)
+                .newLayout(VkImageLayout.PRESENT_SRC_KHR)
+                .srcQueueFamilyIndex(VkConstants.QUEUE_FAMILY_IGNORED)
+                .dstQueueFamilyIndex(VkConstants.QUEUE_FAMILY_IGNORED)
+                .image(swapchain.pSwapchainImages.read())
+                .subresourceRange(it -> it
+                        .aspectMask(VkImageAspectFlags.COLOR)
+                        .baseMipLevel(0)
+                        .levelCount(1)
+                        .baseArrayLayer(0)
+                        .layerCount(1));
         while (window.tick()) {
             if (window.framebufferResized) {
                 cx.waitDeviceIdle();
@@ -64,12 +85,14 @@ public final class Main {
                 window.framebufferResized = false;
             }
 
+            VkSemaphore.Ptr pImageAvailableSemaphore =
+                    swapchain.pRenderFinishedSemaphores.offset(currentFrame);
             VkFence.Ptr pFence = cx.pInFlightFences.offset(currentFrame);
 
             cx.dCmd.waitForFences(cx.device, 1, pFence, VkConstants.TRUE, NativeLayout.UINT64_MAX);
             @EnumType(VkResult.class) int result = swapchain.acquireNextImage(
                     pImageIndex,
-                    null
+                    pImageAvailableSemaphore.read()
             );
             if (result == VkResult.ERROR_OUT_OF_DATE_KHR) {
                 continue;
@@ -86,9 +109,22 @@ public final class Main {
             VkCommandBuffer cmdBuf = Objects.requireNonNull(pCmdBuf.read());
             cx.dCmd.resetCommandBuffer(cmdBuf, 0);
             cx.dCmd.beginCommandBuffer(cmdBuf, cmdBufBeginInfo);
+
+            imageMemoryBarrier.image(swapchain.pSwapchainImages.read(swapchainImageIndex));
+            cx.dCmd.cmdPipelineBarrier(
+                    cmdBuf,
+                    VkPipelineStageFlags.TOP_OF_PIPE,
+                    VkPipelineStageFlags.COLOR_ATTACHMENT_OUTPUT,
+                    0,
+                    0, null,
+                    0, null,
+                    1, imageMemoryBarrier
+            );
+
             cx.dCmd.endCommandBuffer(cmdBuf);
 
             submitInfo
+                    .pWaitSemaphores(pImageAvailableSemaphore)
                     .pCommandBuffers(pCmdBuf)
                     .pSignalSemaphores(pRenderFinishedSemaphore);
             try {
@@ -111,6 +147,7 @@ public final class Main {
         }
         cx.waitDeviceIdle();
 
+        swapchain.close();
         cx.close();
         window.close();
     }

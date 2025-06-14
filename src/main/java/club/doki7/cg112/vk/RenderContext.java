@@ -1,8 +1,10 @@
 package club.doki7.cg112.vk;
 
 import club.doki7.cg112.exc.RenderException;
-import club.doki7.cg112.vk.cleanup.RenderContextCleanup;
+import club.doki7.cg112.util.Pair;
+import club.doki7.cg112.util.Ref;
 import club.doki7.cg112.vk.init.ContextInit;
+import club.doki7.ffm.annotation.Unsafe;
 import club.doki7.glfw.GLFW;
 import club.doki7.glfw.handle.GLFWwindow;
 import club.doki7.vma.VMA;
@@ -15,9 +17,12 @@ import club.doki7.vulkan.handle.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
-import java.lang.ref.Cleaner;
+import java.util.LinkedList;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Logger;
 
 public final class RenderContext implements AutoCloseable {
     public final Arena prefabArena;
@@ -163,30 +168,31 @@ public final class RenderContext implements AutoCloseable {
             this.computeQueueLock = null;
         }
 
-        RenderContextCleanup cleanup = new RenderContextCleanup(
-                iCmd,
-                dCmd,
-                vma,
-
-                instance,
-                debugMessenger,
-                surface,
-
-                device,
-
-                vmaAllocator,
-
-                pImageAvailableSemaphores,
-                pComputeFinishedSemaphores,
-                pInFlightFences,
-
-                graphicsCommandPool,
-                graphicsOnceCommandPool,
-                transferCommandPool,
-                computeCommandPool,
-                computeOnceCommandPool
-        );
-        cleanable = cleaner.register(this, cleanup::dispose);
+        this.disposeList = new Ref<>(new LinkedList<>());
+        this.countedList = new LinkedList<>();
+        this.gcQueue = new SynchronousQueue<>();
+        this.gcThread = new Thread(() -> {
+            Logger logger = Logger.getLogger(Thread.currentThread().getName());
+            while (true) {
+                try {
+                    @Nullable IDisposeOnContext item = gcQueue.take();
+                    if (item == IDisposeOnContext.POISON) {
+                        break;
+                    }
+                    try {
+                        item.disposeOnContext(this);
+                    } catch (Throwable e) {
+                        logger.severe("在 RenderContext GC 线程中处理对象 " + item + " 时发生异常: " + e.getMessage());
+                        e.printStackTrace(System.err);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            logger.info("RenderContext GC 线程已退出");
+        }, "RenderContext-GC-Thread");
+        this.gcThread.start();
     }
 
     public boolean hasTransferQueue() {
@@ -221,6 +227,43 @@ public final class RenderContext implements AutoCloseable {
         }
     }
 
+    public void dispose(IDisposeOnContext item) {
+        synchronized (disposeList) {
+            disposeList.value.add(item);
+        }
+    }
+
+    @Unsafe
+    public void disposeImmediate(IDisposeOnContext item) {
+        boolean result = gcQueue.offer(item);
+        assert result;
+    }
+
+    public void gc() {
+        countedList.removeIf(it -> {
+            if (it.second >= config.maxFramesInFlight) {
+                it.first.disposeOnContext(this);
+                return true;
+            } else {
+                return false;
+            }
+        });
+
+        for (Pair<IDisposeOnContext, Integer> item : countedList) {
+            item.second += 1;
+        }
+
+        LinkedList<IDisposeOnContext> list;
+        synchronized (disposeList) {
+            list = disposeList.value;
+            disposeList.value = new LinkedList<>();
+        }
+
+        for (IDisposeOnContext item : list) {
+            countedList.add(new Pair<>(item, 0));
+        }
+    }
+
     public static RenderContext create(
             GLFW glfw,
             GLFWwindow window,
@@ -231,9 +274,68 @@ public final class RenderContext implements AutoCloseable {
 
     @Override
     public void close() {
-        this.cleanable.clean();
+        waitDeviceIdle();
+
+        for (IDisposeOnContext item : disposeList.value) {
+            boolean result = gcQueue.offer(item);
+            assert result;
+        }
+        for (Pair<IDisposeOnContext, Integer> item : countedList) {
+            boolean result = gcQueue.offer(item.first);
+            assert result;
+        }
+        boolean result = gcQueue.offer(IDisposeOnContext.POISON);
+        assert result;
+        try {
+            gcThread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            // 不要再抛出异常
+            logger.warning("RenderContext GC 线程被中断: "  + e.getMessage());
+        }
+
+        dCmd.destroyCommandPool(device, graphicsCommandPool, null);
+        dCmd.destroyCommandPool(device, graphicsOnceCommandPool, null);
+        if (transferCommandPool != null) {
+            dCmd.destroyCommandPool(device, transferCommandPool, null);
+        }
+        if (computeCommandPool != null) {
+            dCmd.destroyCommandPool(device, computeCommandPool, null);
+        }
+        if (computeOnceCommandPool != null) {
+            dCmd.destroyCommandPool(device, computeOnceCommandPool, null);
+        }
+
+        for (VkSemaphore semaphore : pImageAvailableSemaphores) {
+            dCmd.destroySemaphore(device, semaphore, null);
+        }
+        for (VkFence fence : pInFlightFences) {
+            dCmd.destroyFence(device, fence, null);
+        }
+        if (pComputeFinishedSemaphores != null) {
+            for (VkSemaphore semaphore : pComputeFinishedSemaphores) {
+                dCmd.destroySemaphore(device, semaphore, null);
+            }
+        }
+
+        vma.destroyAllocator(vmaAllocator);
+
+        dCmd.destroyDevice(device, null);
+
+        iCmd.destroySurfaceKHR(instance, surface, null);
+
+        if (debugMessenger != null) {
+            iCmd.destroyDebugUtilsMessengerEXT(instance, debugMessenger, null);
+        }
+
+        iCmd.destroyInstance(instance, null);
+
+        logger.info("已销毁 RenderContext 资源");
     }
 
-    private final Cleaner.Cleanable cleanable;
-    private static final Cleaner cleaner = Cleaner.create();
+    private final Ref<LinkedList<IDisposeOnContext>> disposeList;
+    private final LinkedList<Pair<IDisposeOnContext, Integer>> countedList;
+    private final BlockingQueue<IDisposeOnContext> gcQueue;
+    private final Thread gcThread;
+    private static final Logger logger = Logger.getLogger(RenderContext.class.getName());
 }

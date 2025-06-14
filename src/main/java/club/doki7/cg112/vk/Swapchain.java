@@ -1,8 +1,6 @@
 package club.doki7.cg112.vk;
 
 import club.doki7.cg112.exc.RenderException;
-import club.doki7.cg112.vk.cleanup.IDisposable;
-import club.doki7.cg112.vk.cleanup.SwapchainCleanup;
 import club.doki7.cg112.vk.init.SwapchainInit;
 import club.doki7.ffm.NativeLayout;
 import club.doki7.ffm.annotation.EnumType;
@@ -12,7 +10,7 @@ import club.doki7.vulkan.enumtype.VkResult;
 import club.doki7.vulkan.handle.*;
 import org.jetbrains.annotations.Nullable;
 
-import java.lang.ref.Cleaner;
+import java.util.logging.Logger;
 
 public final class Swapchain implements AutoCloseable {
     public final RenderContext cx;
@@ -46,14 +44,6 @@ public final class Swapchain implements AutoCloseable {
                 .waitSemaphoreCount(1)
                 .swapchainCount(1)
                 .pSwapchains(VkSwapchainKHR.Ptr.allocateV(cx.prefabArena, vkSwapchain));
-
-        SwapchainCleanup cleanup = new SwapchainCleanup(
-                cx,
-                vkSwapchain,
-                pSwapchainImageViews,
-                pRenderFinishedSemaphores
-        );
-        this.cleanable = cleaner.register(this, cleanup::dispose);
     }
 
     public static Swapchain create(RenderContext cx, int width, int height) throws RenderException {
@@ -88,11 +78,18 @@ public final class Swapchain implements AutoCloseable {
 
     @Override
     public void close() {
-        this.cleanable.clean();
+        for (VkSemaphore semaphore : pRenderFinishedSemaphores) {
+            cx.dCmd.destroySemaphore(cx.device, semaphore, null);
+        }
+        for (VkImageView imageView : pSwapchainImageViews) {
+            cx.dCmd.destroyImageView(cx.device, imageView, null);
+        }
+        cx.dCmd.destroySwapchainKHR(cx.device, vkSwapchain, null);
+
+        logger.info("已销毁交换链及其相关资源");
     }
 
     private final VkPresentInfoKHR presentInfo;
-    private final Cleaner.Cleanable cleanable;
 
-    private static final Cleaner cleaner = Cleaner.create();
+    private static final Logger logger = Logger.getLogger(Swapchain.class.getName());
 }

@@ -1,7 +1,6 @@
 package club.doki7.cg112.vk;
 
 import club.doki7.cg112.exc.RenderException;
-import club.doki7.cg112.vk.cleanup.RenderWindowCleanup;
 import club.doki7.ffm.annotation.Pointer;
 import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.ffm.ptr.IntPtr;
@@ -14,7 +13,7 @@ import java.lang.foreign.Linker;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.ref.Cleaner;
+import java.util.logging.Logger;
 
 public final class RenderWindow implements AutoCloseable {
     public final GLFW glfw;
@@ -52,9 +51,6 @@ public final class RenderWindow implements AutoCloseable {
                     Arena.global()
             );
             glfw.setFramebufferSizeCallback(rawWindow, pfn);
-
-            RenderWindowCleanup cleanup = new RenderWindowCleanup(glfw, rawWindow);
-            cleanable = cleaner.register(this, cleanup::dispose);
         } catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException("找不到回调函数 RenderWindow::framebufferSizeCallback", e);
         }
@@ -84,9 +80,9 @@ public final class RenderWindow implements AutoCloseable {
 
     @Override
     public void close() {
-        cleanable.clean();
+        glfw.destroyWindow(rawWindow);
+        logger.info("已销毁 GLFW 窗口");
     }
 
-    private final Cleaner.Cleanable cleanable;
-    private static final Cleaner cleaner = Cleaner.create();
+    private static final Logger logger = Logger.getLogger(RenderWindow.class.getName());
 }
