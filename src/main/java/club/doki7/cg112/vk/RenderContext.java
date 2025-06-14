@@ -1,6 +1,7 @@
 package club.doki7.cg112.vk;
 
 import club.doki7.cg112.exc.RenderException;
+import club.doki7.cg112.vk.cleanup.RenderContextCleanup;
 import club.doki7.cg112.vk.init.ContextInit;
 import club.doki7.glfw.GLFW;
 import club.doki7.glfw.handle.GLFWwindow;
@@ -14,10 +15,11 @@ import club.doki7.vulkan.handle.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
+import java.lang.ref.Cleaner;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class RenderContext implements AutoCloseable {
+public final class RenderContext {
     public final Arena prefabArena;
     public final RenderConfig config;
     public final VkStaticCommands sCmd;
@@ -160,6 +162,31 @@ public class RenderContext implements AutoCloseable {
         } else {
             this.computeQueueLock = null;
         }
+
+        final RenderContextCleanup cleanup = new RenderContextCleanup(
+                iCmd,
+                dCmd,
+                vma,
+
+                instance,
+                debugMessenger,
+                surface,
+
+                device,
+
+                vmaAllocator,
+
+                pImageAvailableSemaphores,
+                pComputeFinishedSemaphores,
+                pInFlightFences,
+
+                graphicsCommandPool,
+                graphicsOnceCommandPool,
+                transferCommandPool,
+                computeCommandPool,
+                computeOnceCommandPool
+        );
+        cleaner.register(this, cleanup::dispose);
     }
 
     public boolean hasTransferQueue() {
@@ -194,54 +221,6 @@ public class RenderContext implements AutoCloseable {
         }
     }
 
-    @Override
-    public void close() {
-        waitDeviceIdle();
-
-        // command pools
-        dCmd.destroyCommandPool(device, graphicsCommandPool, null);
-        dCmd.destroyCommandPool(device, graphicsOnceCommandPool, null);
-        if (transferCommandPool != null) {
-            dCmd.destroyCommandPool(device, transferCommandPool, null);
-        }
-        if (computeCommandPool != null) {
-            dCmd.destroyCommandPool(device, computeCommandPool, null);
-        }
-        if (computeOnceCommandPool != null) {
-            dCmd.destroyCommandPool(device, computeOnceCommandPool, null);
-        }
-
-        // synchronization objects
-        for (VkSemaphore semaphore : pImageAvailableSemaphores) {
-            dCmd.destroySemaphore(device, semaphore, null);
-        }
-        for (VkFence fence : pInFlightFences) {
-            dCmd.destroyFence(device, fence, null);
-        }
-        if (pComputeFinishedSemaphores != null) {
-            for (VkSemaphore semaphore : pComputeFinishedSemaphores) {
-                dCmd.destroySemaphore(device, semaphore, null);
-            }
-        }
-
-        // VMA allocator
-        vma.destroyAllocator(vmaAllocator);
-
-        // device
-        dCmd.destroyDevice(device, null);
-
-        // window surface
-        iCmd.destroySurfaceKHR(instance, surface, null);
-
-        // debug messenger
-        if (debugMessenger != null) {
-            iCmd.destroyDebugUtilsMessengerEXT(instance, debugMessenger, null);
-        }
-
-        // instance
-        iCmd.destroyInstance(instance, null);
-    }
-
     public static RenderContext create(
             GLFW glfw,
             GLFWwindow window,
@@ -249,4 +228,6 @@ public class RenderContext implements AutoCloseable {
     ) throws RenderException {
         return new ContextInit(glfw, window, config).init();
     }
+
+    private static final Cleaner cleaner = Cleaner.create();
 }

@@ -1,4 +1,4 @@
-package club.doki7.cg112.test;
+package club.doki7.cg112.drv;
 
 import club.doki7.cg112.exc.RenderException;
 import club.doki7.cg112.vk.RenderConfig;
@@ -9,7 +9,7 @@ import club.doki7.glfw.GLFW;
 import club.doki7.glfw.GLFWLoader;
 import club.doki7.vulkan.command.VulkanLoader;
 
-public class TestContextInit {
+public final class Main {
     static {
         System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tFT%1$tT] [%4$s] %3$s : %5$s%n");
         VulkanLoader.loadVulkanLibrary();
@@ -24,7 +24,6 @@ public class TestContextInit {
             e.printStackTrace(System.err);
         } finally {
             System.gc();
-            System.gc();
         }
     }
 
@@ -36,17 +35,18 @@ public class TestContextInit {
 
         RenderConfig config = new RenderConfig();
 
-        RenderWindow window = new RenderWindow(glfw, "Test Vulkan Context", 800, 600);
-        RenderContext context = RenderContext.create(glfw, window.rawWindow, config);
-        Swapchain swapchain = Swapchain.create(context, 800, 600);
+        RenderWindow window = new RenderWindow(glfw, "CG-112", 800, 600);
+        RenderContext cx = RenderContext.create(glfw, window.rawWindow, config);
+        Swapchain swapchain = Swapchain.create(cx, 800, 600);
 
         while (window.beforeTick()) {
             if (window.framebufferResized) {
+                cx.waitDeviceIdle();
                 swapchain.dispose();
-                swapchain = Swapchain.create(context, window.width, window.height);
+                swapchain = Swapchain.create(cx, window.width, window.height);
             }
             window.afterTick();
         }
-        context.waitDeviceIdle();
+        cx.waitDeviceIdle();
     }
 }
