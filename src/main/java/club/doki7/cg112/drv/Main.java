@@ -54,7 +54,7 @@ public final class Main {
 
         int currentFrame = 0;
         IntPtr pImageIndex = IntPtr.allocate(cx.prefabArena);
-        VkCommandBufferBeginInfo cmdbufBeginInfo = VkCommandBufferBeginInfo.allocate(cx.prefabArena);
+        VkCommandBufferBeginInfo cmdBufBeginInfo = VkCommandBufferBeginInfo.allocate(cx.prefabArena);
         VkSubmitInfo submitInfo = VkSubmitInfo.allocate(cx.prefabArena)
                 .commandBufferCount(1)
                 .signalSemaphoreCount(1);
@@ -87,15 +87,18 @@ public final class Main {
             VkCommandBuffer.Ptr pCmdBuf = cx.graphicsCommandBuffers.offset(currentFrame);
             VkCommandBuffer cmdBuf = Objects.requireNonNull(pCmdBuf.read());
             cx.dCmd.resetCommandBuffer(cmdBuf, 0);
-            cx.dCmd.beginCommandBuffer(cmdBuf, cmdbufBeginInfo);
+            cx.dCmd.beginCommandBuffer(cmdBuf, cmdBufBeginInfo);
             cx.dCmd.endCommandBuffer(cmdBuf);
 
             submitInfo
                     .pCommandBuffers(pCmdBuf)
                     .pSignalSemaphores(pRenderFinishedSemaphore);
-            cx.graphicsQueueLock.lock();
-            result = cx.dCmd.queueSubmit(cx.graphicsQueue, 1, submitInfo, pFence.read());
-            cx.graphicsQueueLock.unlock();
+            try {
+                cx.graphicsQueueLock.lock();
+                result = cx.dCmd.queueSubmit(cx.graphicsQueue, 1, submitInfo, pFence.read());
+            } finally {
+                cx.graphicsQueueLock.unlock();
+            }
             if (result != VkResult.SUCCESS) {
                 throw new VulkanException(result, "提交命令缓冲区失败");
             }
