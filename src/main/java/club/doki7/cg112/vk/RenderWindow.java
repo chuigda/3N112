@@ -1,7 +1,6 @@
 package club.doki7.cg112.vk;
 
 import club.doki7.cg112.exc.RenderException;
-import club.doki7.cg112.vk.cleanup.IDisposable;
 import club.doki7.cg112.vk.cleanup.RenderWindowCleanup;
 import club.doki7.ffm.annotation.Pointer;
 import club.doki7.ffm.ptr.BytePtr;
@@ -61,7 +60,7 @@ public final class RenderWindow {
         }
     }
 
-    public boolean beforeTick() {
+    public boolean tick() {
         if (glfw.windowShouldClose(rawWindow) == GLFW.TRUE) {
             return false;
         }
@@ -73,12 +72,6 @@ public final class RenderWindow {
             height = pWidthHeight.read(1);
         }
         return true;
-    }
-
-    public void afterTick() {
-        if (framebufferResized) {
-            framebufferResized = false;
-        }
     }
 
     private void framebufferSizeCallback(

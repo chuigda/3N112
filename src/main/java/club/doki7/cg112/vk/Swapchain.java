@@ -10,6 +10,7 @@ import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.vulkan.datatype.*;
 import club.doki7.vulkan.enumtype.VkResult;
 import club.doki7.vulkan.handle.*;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.ref.Cleaner;
 
@@ -23,8 +24,6 @@ public final class Swapchain implements IDisposable {
     public final VkImage.Ptr pSwapchainImages;
     public final VkImageView.Ptr pSwapchainImageViews;
     public final VkSemaphore.Ptr pRenderFinishedSemaphores;
-
-    private final Cleaner.Cleanable cleanable;
 
     public Swapchain(
             RenderContext cx,
@@ -43,6 +42,11 @@ public final class Swapchain implements IDisposable {
         this.pSwapchainImageViews = pSwapchainImageViews;
         this.pRenderFinishedSemaphores = pRenderFinishedSemaphores;
 
+        this.presentInfo = VkPresentInfoKHR.allocate(cx.prefabArena)
+                .waitSemaphoreCount(1)
+                .swapchainCount(1)
+                .pSwapchains(VkSwapchainKHR.Ptr.allocateV(cx.prefabArena, vkSwapchain));
+
         SwapchainCleanup cleanup = new SwapchainCleanup(
                 cx,
                 vkSwapchain,
@@ -58,7 +62,7 @@ public final class Swapchain implements IDisposable {
 
     public @EnumType(VkResult.class) int acquireNextImage(
             IntPtr pImageIndex,
-            VkSemaphore signalSemaphore
+            @Nullable VkSemaphore signalSemaphore
     ) {
         return cx.dCmd.acquireNextImageKHR(
                 cx.device,
@@ -70,10 +74,25 @@ public final class Swapchain implements IDisposable {
         );
     }
 
+    public @EnumType(VkResult.class) int present(IntPtr pImageIndex) {
+        presentInfo
+                .pWaitSemaphores(pRenderFinishedSemaphores.offset(pImageIndex.read()))
+                .pImageIndices(pImageIndex);
+        try {
+            cx.presentQueueLock.lock();
+            return cx.dCmd.queuePresentKHR(cx.presentQueue, presentInfo);
+        } finally {
+            cx.presentQueueLock.unlock();
+        }
+    }
+
     @Override
     public void dispose() {
         this.cleanable.clean();
     }
+
+    private final VkPresentInfoKHR presentInfo;
+    private final Cleaner.Cleanable cleanable;
 
     private static final Cleaner cleaner = Cleaner.create();
 }
