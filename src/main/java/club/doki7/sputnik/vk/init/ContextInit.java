@@ -1,10 +1,10 @@
-package club.doki7.cg112.vk.init;
+package club.doki7.sputnik.vk.init;
 
-import club.doki7.cg112.exc.RenderException;
-import club.doki7.cg112.exc.VulkanException;
-import club.doki7.cg112.util.Assertion;
-import club.doki7.cg112.vk.RenderConfig;
-import club.doki7.cg112.vk.RenderContext;
+import club.doki7.sputnik.exc.RenderException;
+import club.doki7.sputnik.exc.VulkanException;
+import club.doki7.sputnik.util.Assertion;
+import club.doki7.sputnik.vk.RenderConfig;
+import club.doki7.sputnik.vk.RenderContext;
 import club.doki7.ffm.Loader;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.*;

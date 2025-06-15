@@ -1,4 +1,4 @@
-package club.doki7.cg112.util;
+package club.doki7.sputnik.util;
 
 public final class Assertion {
     public static final boolean assertionEnabled = Impl.assertionEnabled;

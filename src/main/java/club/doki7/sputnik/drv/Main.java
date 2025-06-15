@@ -1,10 +1,10 @@
-package club.doki7.cg112.drv;
+package club.doki7.sputnik.drv;
 
-import club.doki7.cg112.exc.RenderException;
-import club.doki7.cg112.vk.RenderConfig;
-import club.doki7.cg112.vk.RenderContext;
-import club.doki7.cg112.vk.RenderWindow;
-import club.doki7.cg112.vk.Swapchain;
+import club.doki7.sputnik.exc.RenderException;
+import club.doki7.sputnik.vk.RenderConfig;
+import club.doki7.sputnik.vk.RenderContext;
+import club.doki7.sputnik.vk.RenderWindow;
+import club.doki7.sputnik.vk.Swapchain;
 import club.doki7.glfw.GLFW;
 import club.doki7.glfw.GLFWLoader;
 import club.doki7.vulkan.command.VulkanLoader;

@@ -1,8 +1,8 @@
-package club.doki7.cg112.vk.cmd;
+package club.doki7.sputnik.vk.cmd;
 
-import club.doki7.cg112.exc.VulkanException;
-import club.doki7.cg112.vk.IDisposeOnContext;
-import club.doki7.cg112.vk.RenderContext;
+import club.doki7.sputnik.exc.VulkanException;
+import club.doki7.sputnik.vk.IDisposeOnContext;
+import club.doki7.sputnik.vk.RenderContext;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.annotation.Unsafe;
 import club.doki7.vulkan.bitmask.VkCommandPoolCreateFlags;

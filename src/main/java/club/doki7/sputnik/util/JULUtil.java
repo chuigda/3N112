@@ -1,4 +1,4 @@
-package club.doki7.cg112.util;
+package club.doki7.sputnik.util;
 
 import java.util.logging.Handler;
 import java.util.logging.Level;

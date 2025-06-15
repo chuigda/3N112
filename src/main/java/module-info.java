@@ -1,4 +1,4 @@
-module club.doki7.cg112 {
+module club.doki7.sputnik {
     requires club.doki7.ffm;
     requires club.doki7.glfw;
     requires club.doki7.vma;
@@ -7,10 +7,10 @@ module club.doki7.cg112 {
     requires java.logging;
     requires org.jetbrains.annotations;
 
-    exports club.doki7.cg112.exc;
-    exports club.doki7.cg112.util;
+    exports club.doki7.sputnik.exc;
+    exports club.doki7.sputnik.util;
 
-    exports club.doki7.cg112.vk;
-    exports club.doki7.cg112.vk.cmd;
-    exports club.doki7.cg112.vk.sync;
+    exports club.doki7.sputnik.vk;
+    exports club.doki7.sputnik.vk.cmd;
+    exports club.doki7.sputnik.vk.sync;
 }

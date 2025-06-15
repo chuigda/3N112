@@ -1,4 +1,4 @@
-package club.doki7.cg112.exc;
+package club.doki7.sputnik.exc;
 
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.vulkan.enumtype.VkResult;
