@@ -43,6 +43,7 @@ public final class SemaphoreVK implements AutoCloseable {
 
     private SemaphoreVK(VkSemaphore handle, RenderContext context, boolean local) {
         this.handle = handle;
+
         IDisposeOnContext d = cx -> cx.dCmd.destroySemaphore(cx.device, handle, null);
         this.cleanable = context.registerCleanup(this, d, local);
     }

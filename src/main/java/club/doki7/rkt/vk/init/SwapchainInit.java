@@ -119,7 +119,7 @@ public final class SwapchainInit {
             @EnumType(VkResult.class) int result =
                     cx.dCmd.getSwapchainImagesKHR(cx.device, vkSwapchain, pImageCount, null);
             if (result != VkResult.SUCCESS) {
-                throw new VulkanException(result, "无法获取 Vulkan 交换链图像数量, 错误代码");
+                throw new VulkanException(result, "无法获取 Vulkan 交换链图像数量");
             }
             int resultingImageCount = pImageCount.read();
             assert resultingImageCount == imageCount : String.format(
@@ -130,7 +130,7 @@ public final class SwapchainInit {
 
             result = cx.dCmd.getSwapchainImagesKHR(cx.device, vkSwapchain, pImageCount, pSwapchainImages);
             if (result != VkResult.SUCCESS) {
-                throw new VulkanException(result, "无法获取 Vulkan 交换链图像, 错误代码");
+                throw new VulkanException(result, "无法获取 Vulkan 交换链图像");
             }
         }
     }
@@ -160,7 +160,7 @@ public final class SwapchainInit {
                         pImageView
                 );
                 if (result != VkResult.SUCCESS) {
-                    throw new RenderException("无法创建 Vulkan 图像视图, 错误代码: " + VkResult.explain(result));
+                    throw new VulkanException(result, "无法创建 Vulkan 图像视图");
                 }
             }
         }

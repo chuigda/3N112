@@ -119,6 +119,7 @@ public final class CommandPool implements AutoCloseable {
     ) {
         this.handle = handle;
         this.flags = flags;
+
         IDisposeOnContext d = cx -> cx.dCmd.destroyCommandPool(cx.device, handle, null);
         this.cleanable = context.registerCleanup(this, d, local);
     }

@@ -2,7 +2,6 @@ package club.doki7.rkt.vk.resc;
 
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.BytePtr;
-import club.doki7.ffm.ptr.PointerPtr;
 import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.vk.IDisposeOnContext;
 import club.doki7.rkt.vk.RenderContext;
@@ -24,7 +23,6 @@ import java.lang.ref.Cleaner;
 public final class Buffer implements AutoCloseable {
     public final VkBuffer handle;
     public final long size;
-    public final boolean hostAccess;
     public final @Nullable BytePtr mapped;
 
     public static Buffer create(
@@ -35,7 +33,6 @@ public final class Buffer implements AutoCloseable {
             @EnumType(VmaAllocationCreateFlags.class) int allocationFlags,
             @EnumType(VkSharingMode.class) int sharingMode
     ) throws VulkanException {
-        boolean hostAccess = (allocationFlags & VmaAllocationCreateFlags.HOST_ACCESS_RANDOM) != 0;
         boolean initiallyMapped = (allocationFlags & VmaAllocationCreateFlags.MAPPED) != 0;
 
         try (Arena arena = Arena.ofConfined()) {
@@ -66,10 +63,10 @@ public final class Buffer implements AutoCloseable {
 
             VkBuffer handle = pBuffer.read();
             VmaAllocation allocation = pAllocation.read();
-            BytePtr mapped = allocationInfo != null
+            @Nullable BytePtr mapped = allocationInfo != null
                     ? new BytePtr(allocationInfo.pMappedData().reinterpret(size))
                     : null;
-            return new Buffer(handle, size, hostAccess, mapped, allocation, cx, local);
+            return new Buffer(handle, size, mapped, allocation, cx, local);
         }
     }
 
@@ -125,42 +122,10 @@ public final class Buffer implements AutoCloseable {
                 cx,
                 size,
                 false,
-                VkBufferUsageFlags.STORAGE_BUFFER | VkBufferUsageFlags.TRANSFER_DST,
-                VmaAllocationCreateFlags.HOST_ACCESS_RANDOM | VmaAllocationCreateFlags.MAPPED,
+                VkBufferUsageFlags.STORAGE_BUFFER,
+                0,
                 VkSharingMode.EXCLUSIVE
         );
-    }
-
-    public BytePtr map(RenderContext cx) throws VulkanException {
-        if (!hostAccess) {
-            throw new IllegalStateException("此缓冲不支持映射");
-        }
-
-        if (mapped != null) {
-            return mapped;
-        }
-
-        try (Arena arena = Arena.ofConfined()) {
-            PointerPtr ppData = PointerPtr.allocate(arena);
-            @EnumType(VkResult.class) int result =
-                    cx.vma.mapMemory(cx.vmaAllocator, allocation, ppData);
-            if (result != VkResult.SUCCESS) {
-                throw new VulkanException(result, "无法映射 Vulkan 缓冲区");
-            }
-            return new BytePtr(ppData.read().reinterpret(size));
-        }
-    }
-
-    public void unmap(RenderContext cx) {
-        if (!hostAccess) {
-            throw new IllegalStateException("此缓冲不支持映射");
-        }
-
-        if (mapped != null) {
-            return;
-        }
-
-        cx.vma.unmapMemory(cx.vmaAllocator, allocation);
     }
 
     @Override
@@ -171,7 +136,6 @@ public final class Buffer implements AutoCloseable {
     private Buffer(
             VkBuffer handle,
             long size,
-            boolean hostAccess,
             @Nullable BytePtr mapped,
             VmaAllocation allocation,
             RenderContext context,
@@ -179,13 +143,11 @@ public final class Buffer implements AutoCloseable {
     ) {
         this.handle = handle;
         this.size = size;
-        this.hostAccess = hostAccess;
         this.mapped = mapped;
-        this.allocation = allocation;
+
         IDisposeOnContext d = cx -> cx.vma.destroyBuffer(cx.vmaAllocator, handle, allocation);
         this.cleanable = context.registerCleanup(this, d, local);
     }
 
-    private final VmaAllocation allocation;
     private final Cleaner.Cleanable cleanable;
 }

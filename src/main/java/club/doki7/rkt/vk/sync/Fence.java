@@ -64,6 +64,7 @@ public final class Fence implements AutoCloseable {
 
     private Fence(VkFence handle, RenderContext context, boolean local) {
         this.handle = handle;
+
         IDisposeOnContext d = cx -> cx.dCmd.destroyFence(cx.device, handle, null);
         this.cleanable = context.registerCleanup(this, d, local);
     }
