@@ -1,4 +1,4 @@
-package club.doki7.sputnik.vk;
+package club.doki7.rkt.vk;
 
 @FunctionalInterface
 public interface IDisposeOnContext {

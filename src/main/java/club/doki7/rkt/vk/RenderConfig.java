@@ -1,4 +1,4 @@
-package club.doki7.sputnik.vk;
+package club.doki7.rkt.vk;
 
 import club.doki7.vulkan.Version;
 import club.doki7.vulkan.datatype.VkPhysicalDeviceProperties;

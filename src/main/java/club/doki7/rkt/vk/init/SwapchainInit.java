@@ -1,10 +1,10 @@
-package club.doki7.sputnik.vk.init;
+package club.doki7.rkt.vk.init;
 
-import club.doki7.sputnik.exc.RenderException;
-import club.doki7.sputnik.exc.VulkanException;
-import club.doki7.sputnik.vk.RenderConfig;
-import club.doki7.sputnik.vk.RenderContext;
-import club.doki7.sputnik.vk.Swapchain;
+import club.doki7.rkt.exc.RenderException;
+import club.doki7.rkt.exc.VulkanException;
+import club.doki7.rkt.vk.RenderConfig;
+import club.doki7.rkt.vk.RenderContext;
+import club.doki7.rkt.vk.Swapchain;
 import club.doki7.ffm.NativeLayout;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.IntPtr;

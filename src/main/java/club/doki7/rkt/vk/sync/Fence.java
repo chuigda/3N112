@@ -1,8 +1,8 @@
-package club.doki7.sputnik.vk.sync;
+package club.doki7.rkt.vk.sync;
 
-import club.doki7.sputnik.exc.VulkanException;
-import club.doki7.sputnik.vk.IDisposeOnContext;
-import club.doki7.sputnik.vk.RenderContext;
+import club.doki7.rkt.exc.VulkanException;
+import club.doki7.rkt.vk.IDisposeOnContext;
+import club.doki7.rkt.vk.RenderContext;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.annotation.Unsafe;
 import club.doki7.vulkan.bitmask.VkFenceCreateFlags;

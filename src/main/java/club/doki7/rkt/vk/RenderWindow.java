@@ -1,6 +1,6 @@
-package club.doki7.sputnik.vk;
+package club.doki7.rkt.vk;
 
-import club.doki7.sputnik.exc.RenderException;
+import club.doki7.rkt.exc.RenderException;
 import club.doki7.ffm.annotation.Pointer;
 import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.ffm.ptr.IntPtr;

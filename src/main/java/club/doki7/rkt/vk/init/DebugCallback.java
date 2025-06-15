@@ -1,4 +1,4 @@
-package club.doki7.sputnik.vk.init;
+package club.doki7.rkt.vk.init;
 
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.annotation.NativeType;

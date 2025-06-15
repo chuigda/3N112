@@ -1,9 +1,9 @@
-package club.doki7.sputnik.vk;
+package club.doki7.rkt.vk;
 
-import club.doki7.sputnik.exc.RenderException;
-import club.doki7.sputnik.util.Pair;
-import club.doki7.sputnik.util.Ref;
-import club.doki7.sputnik.vk.init.ContextInit;
+import club.doki7.rkt.exc.RenderException;
+import club.doki7.rkt.util.Pair;
+import club.doki7.rkt.util.Ref;
+import club.doki7.rkt.vk.init.ContextInit;
 import club.doki7.ffm.annotation.Unsafe;
 import club.doki7.glfw.GLFW;
 import club.doki7.glfw.handle.GLFWwindow;

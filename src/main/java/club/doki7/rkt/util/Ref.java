@@ -1,4 +1,4 @@
-package club.doki7.sputnik.util;
+package club.doki7.rkt.util;
 
 import java.util.Objects;
 

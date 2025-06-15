@@ -1,8 +1,8 @@
-package club.doki7.sputnik.vk.cmd;
+package club.doki7.rkt.vk.cmd;
 
-import club.doki7.sputnik.exc.VulkanException;
-import club.doki7.sputnik.vk.IDisposeOnContext;
-import club.doki7.sputnik.vk.RenderContext;
+import club.doki7.rkt.exc.VulkanException;
+import club.doki7.rkt.vk.IDisposeOnContext;
+import club.doki7.rkt.vk.RenderContext;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.annotation.Unsafe;
 import club.doki7.vulkan.bitmask.VkCommandPoolCreateFlags;
@@ -53,10 +53,8 @@ public final class CommandPool implements AutoCloseable {
                 throw new VulkanException(result, "无法分配 Vulkan 命令缓冲区");
             }
 
-            return new CommandBuffer(
-                    Objects.requireNonNull(pCommandBuffer.read()),
-                    (flags & VkCommandPoolCreateFlags.RESET_COMMAND_BUFFER) != 0
-            );
+            boolean canReset = (flags & VkCommandPoolCreateFlags.RESET_COMMAND_BUFFER) != 0;
+            return new CommandBuffer(Objects.requireNonNull(pCommandBuffer.read()), canReset);
         }
     }
 

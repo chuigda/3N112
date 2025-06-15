@@ -1,8 +1,8 @@
-package club.doki7.sputnik.vk;
+package club.doki7.rkt.vk;
 
-import club.doki7.sputnik.exc.RenderException;
-import club.doki7.sputnik.vk.init.SwapchainInit;
-import club.doki7.sputnik.vk.sync.Semaphore;
+import club.doki7.rkt.exc.RenderException;
+import club.doki7.rkt.vk.init.SwapchainInit;
+import club.doki7.rkt.vk.sync.Semaphore;
 import club.doki7.ffm.NativeLayout;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.IntPtr;

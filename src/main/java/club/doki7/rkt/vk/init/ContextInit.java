@@ -1,10 +1,10 @@
-package club.doki7.sputnik.vk.init;
+package club.doki7.rkt.vk.init;
 
-import club.doki7.sputnik.exc.RenderException;
-import club.doki7.sputnik.exc.VulkanException;
-import club.doki7.sputnik.util.Assertion;
-import club.doki7.sputnik.vk.RenderConfig;
-import club.doki7.sputnik.vk.RenderContext;
+import club.doki7.rkt.exc.RenderException;
+import club.doki7.rkt.exc.VulkanException;
+import club.doki7.rkt.util.Assertion;
+import club.doki7.rkt.vk.RenderConfig;
+import club.doki7.rkt.vk.RenderContext;
 import club.doki7.ffm.Loader;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.*;
@@ -138,7 +138,7 @@ public final class ContextInit {
             VkApplicationInfo appInfo = VkApplicationInfo.allocate(arena)
                     .pApplicationName(BytePtr.allocateString(arena, config.appName))
                     .applicationVersion(config.appVersion.encode())
-                    .pEngineName(BytePtr.allocateString(arena, "RD-107 LF Rocket Engine"))
+                    .pEngineName(BytePtr.allocateString(arena, "RD-275M LF Rocket Engine"))
                     .engineVersion(new Version(0x07, 0x21, 0x0D, 0x00).encode())
                     .apiVersion(Version.VK_API_VERSION_1_0.encode());
 
@@ -525,10 +525,6 @@ public final class ContextInit {
     }
 
     private void cleanup() {
-        if (vmaAllocator != null) {
-            vma.destroyAllocator(vmaAllocator);
-        }
-
         if (vmaAllocator != null) {
             vma.destroyAllocator(vmaAllocator);
         }

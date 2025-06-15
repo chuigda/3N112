@@ -1,6 +1,6 @@
-package club.doki7.sputnik.vk.cmd;
+package club.doki7.rkt.vk.cmd;
 
-import club.doki7.sputnik.vk.RenderContext;
+import club.doki7.rkt.vk.RenderContext;
 import club.doki7.vulkan.handle.VkCommandBuffer;
 
 public final class CommandBuffer {
