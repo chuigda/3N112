@@ -19,7 +19,7 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.foreign.Arena;
 import java.util.LinkedList;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
@@ -170,7 +170,7 @@ public final class RenderContext implements AutoCloseable {
 
         this.disposeList = new Ref<>(new LinkedList<>());
         this.countedList = new LinkedList<>();
-        this.gcQueue = new SynchronousQueue<>();
+        this.gcQueue = new LinkedBlockingQueue<>();
         this.gcThread = new Thread(() -> {
             Logger logger = Logger.getLogger(Thread.currentThread().getName());
             while (true) {
@@ -241,7 +241,7 @@ public final class RenderContext implements AutoCloseable {
 
     public void gc() {
         countedList.removeIf(it -> {
-            if (it.second >= config.maxFramesInFlight) {
+            if (it.second >= config.maxFramesInFlight + 1) {
                 it.first.disposeOnContext(this);
                 return true;
             } else {
