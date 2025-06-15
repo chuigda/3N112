@@ -183,11 +183,7 @@ public final class Buffer implements AutoCloseable {
         this.mapped = mapped;
         this.allocation = allocation;
         IDisposeOnContext d = cx -> cx.vma.destroyBuffer(cx.vmaAllocator, handle, allocation);
-        if (local) {
-            this.cleanable = context.cleaner.register(this, () -> context.disposeImmediate(d));
-        } else {
-            this.cleanable = context.cleaner.register(this, () -> context.dispose(d));
-        }
+        this.cleanable = context.registerCleanup(this, d, local);
     }
 
     private final VmaAllocation allocation;

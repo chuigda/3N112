@@ -53,8 +53,9 @@ public final class CommandPool implements AutoCloseable {
                 throw new VulkanException(result, "无法分配 Vulkan 命令缓冲区");
             }
 
+            VkCommandBuffer commandBuffer = Objects.requireNonNull(pCommandBuffer.read());
             boolean canReset = (flags & VkCommandPoolCreateFlags.RESET_COMMAND_BUFFER) != 0;
-            return new CommandBuffer(Objects.requireNonNull(pCommandBuffer.read()), canReset);
+            return new CommandBuffer(commandBuffer, canReset, this);
         }
     }
 
@@ -79,7 +80,7 @@ public final class CommandPool implements AutoCloseable {
             boolean canReset = (flags & VkCommandPoolCreateFlags.RESET_COMMAND_BUFFER) != 0;
             for (int i = 0; i < count; i++) {
                 VkCommandBuffer vkCommandBuffer = pCommandBuffers.read(i);
-                buffers[i] = new CommandBuffer(vkCommandBuffer, canReset);
+                buffers[i] = new CommandBuffer(vkCommandBuffer, canReset, this);
             }
             return buffers;
         }
@@ -119,11 +120,7 @@ public final class CommandPool implements AutoCloseable {
         this.handle = handle;
         this.flags = flags;
         IDisposeOnContext d = cx -> cx.dCmd.destroyCommandPool(cx.device, handle, null);
-        if (local) {
-            this.cleanable = context.cleaner.register(this, () -> context.disposeImmediate(d));
-        } else {
-            this.cleanable = context.cleaner.register(this, () -> context.dispose(d));
-        }
+        this.cleanable = context.registerCleanup(this, d, local);
     }
 
     private final @EnumType(VkCommandPoolCreateFlags.class) int flags;

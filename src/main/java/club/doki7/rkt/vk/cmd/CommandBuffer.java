@@ -14,8 +14,12 @@ public final class CommandBuffer {
         cx.dCmd.resetCommandBuffer(handle, 0);
     }
 
-    CommandBuffer(VkCommandBuffer handle, boolean canReset) {
+    CommandBuffer(VkCommandBuffer handle, boolean canReset, CommandPool commandPool) {
         this.handle = handle;
         this.canReset = canReset;
+        this.commandPool = commandPool;
     }
+
+    @SuppressWarnings({"unused", "FieldCanBeLocal"})
+    private final CommandPool commandPool;
 }

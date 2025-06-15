@@ -27,14 +27,13 @@ import java.lang.foreign.Arena;
 import java.lang.ref.Cleaner;
 import java.util.LinkedList;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 public final class RenderContext implements AutoCloseable {
-    public final Cleaner cleaner = Cleaner.create();
-
     public final Arena prefabArena;
     public final RenderConfig config;
     public final VkStaticCommands sCmd;
@@ -129,6 +128,8 @@ public final class RenderContext implements AutoCloseable {
             this.computeQueueLock = null;
         }
 
+        this.cleaner = Cleaner.create();
+        this.cleanables = new ConcurrentHashMap<>();
         this.disposeList = new Ref<>(new LinkedList<>());
         this.countedList = new LinkedList<>();
         this.gcQueue = new LinkedBlockingQueue<>();
@@ -210,6 +211,23 @@ public final class RenderContext implements AutoCloseable {
         }
     }
 
+    public Cleaner.Cleanable registerCleanup(Object item, IDisposeOnContext dispose, boolean local) {
+        Cleaner.Cleanable cleanable;
+        if (local) {
+            cleanable = cleaner.register(item, () -> {
+                disposeImmediate(dispose);
+                cleanables.remove(dispose);
+            });
+        } else {
+            cleanable = cleaner.register(item, () -> {
+                dispose(dispose);
+                cleanables.remove(dispose);
+            });
+        }
+        cleanables.put(dispose, cleanable);
+        return cleanable;
+    }
+
     public void dispose(IDisposeOnContext item) {
         synchronized (disposeList) {
             disposeList.value.add(item);
@@ -258,6 +276,10 @@ public final class RenderContext implements AutoCloseable {
     @Override
     public void close() {
         waitDeviceIdle();
+
+        for (Cleaner.Cleanable cleanable : cleanables.values()) {
+            cleanable.clean();
+        }
 
         for (IDisposeOnContext item : disposeList.value) {
             boolean result = gcQueue.offer(item);
@@ -347,6 +369,8 @@ public final class RenderContext implements AutoCloseable {
     final @Nullable Lock transferQueueLock;
     final @Nullable Lock computeQueueLock;
 
+    private final Cleaner cleaner;
+    private final ConcurrentHashMap<IDisposeOnContext, Cleaner.Cleanable> cleanables;
     private final Ref<LinkedList<IDisposeOnContext>> disposeList;
     private final LinkedList<Pair<IDisposeOnContext, Integer>> countedList;
     private final BlockingQueue<IDisposeOnContext> gcQueue;
