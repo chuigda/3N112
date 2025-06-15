@@ -33,7 +33,7 @@ public final class Main {
 
         RenderConfig config = new RenderConfig();
 
-        RenderWindow window = new RenderWindow(glfw, "CG-112", 800, 600);
+        RenderWindow window = new RenderWindow(glfw, "Example window", 800, 600);
         RenderContext cx = RenderContext.create(glfw, window.rawWindow, config);
         Swapchain swapchain = Swapchain.create(cx, 800, 600);
 

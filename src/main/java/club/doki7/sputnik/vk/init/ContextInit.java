@@ -138,7 +138,7 @@ public final class ContextInit {
             VkApplicationInfo appInfo = VkApplicationInfo.allocate(arena)
                     .pApplicationName(BytePtr.allocateString(arena, config.appName))
                     .applicationVersion(config.appVersion.encode())
-                    .pEngineName(BytePtr.allocateString(arena, "CG-112"))
+                    .pEngineName(BytePtr.allocateString(arena, "RD-107 LF Rocket Engine"))
                     .engineVersion(new Version(0x07, 0x21, 0x0D, 0x00).encode())
                     .apiVersion(Version.VK_API_VERSION_1_0.encode());
 
