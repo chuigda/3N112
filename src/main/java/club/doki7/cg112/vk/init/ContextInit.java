@@ -63,19 +63,6 @@ public final class ContextInit {
     private VMA vma;
     private VmaAllocator vmaAllocator;
 
-    private VkSemaphore.Ptr pImageAvailableSemaphores;
-    private @Nullable VkSemaphore.Ptr pComputeFinishedSemaphores;
-    private VkFence.Ptr pInFlightFences;
-
-    private VkCommandPool commandPool;
-    private VkCommandPool graphicsOnceCommandPool;
-    private @Nullable VkCommandPool transferCommandPool;
-    private @Nullable VkCommandPool computeCommandPool;
-    private @Nullable VkCommandPool computeOnceCommandPool;
-
-    private VkCommandBuffer.Ptr commandBuffers;
-    private @Nullable VkCommandBuffer.Ptr computeCommandBuffers;
-
     public ContextInit(
             GLFW glfw,
             GLFWwindow window,
@@ -98,9 +85,6 @@ public final class ContextInit {
             findQueueFamilyIndices();
             createLogicalDevice();
             createVMA();
-            createSyncObjects();
-            createCommandPool();
-            createCommandBuffers();
         } catch (Throwable e) {
             cleanup();
             throw e;
@@ -132,20 +116,7 @@ public final class ContextInit {
                 dedicatedTransferQueue,
                 dedicatedComputeQueue,
 
-                vmaAllocator,
-
-                pImageAvailableSemaphores,
-                pComputeFinishedSemaphores,
-                pInFlightFences,
-
-                commandPool,
-                graphicsOnceCommandPool,
-                transferCommandPool,
-                computeCommandPool,
-                computeOnceCommandPool,
-
-                commandBuffers,
-                computeCommandBuffers
+                vmaAllocator
         );
     }
 
@@ -553,181 +524,9 @@ public final class ContextInit {
         }
     }
 
-    private void createSyncObjects() throws RenderException {
-        pImageAvailableSemaphores = VkSemaphore.Ptr.allocate(prefabArena, config.maxFramesInFlight);
-        pInFlightFences = VkFence.Ptr.allocate(prefabArena, config.maxFramesInFlight);
-        if (dedicatedComputeQueue != null) {
-            pComputeFinishedSemaphores = VkSemaphore.Ptr.allocate(prefabArena, config.maxFramesInFlight);
-        } else {
-            pComputeFinishedSemaphores = null;
-        }
-
-        try (Arena arena = Arena.ofConfined()) {
-            VkSemaphoreCreateInfo semaphoreCreateInfo = VkSemaphoreCreateInfo.allocate(arena);
-            VkFenceCreateInfo fenceCreateInfo = VkFenceCreateInfo.allocate(arena)
-                    .flags(VkFenceCreateFlags.SIGNALED);
-
-            @EnumType(VkResult.class) int result;
-            for (int i = 0; i < config.maxFramesInFlight; i++) {
-                VkSemaphore.Ptr pImageAvailableSemaphore = pImageAvailableSemaphores.offset(i);
-                VkFence.Ptr pInFlightFence = pInFlightFences.offset(i);
-
-                result = dCmd.createSemaphore(device, semaphoreCreateInfo, null, pImageAvailableSemaphore);
-                if (result != VkResult.SUCCESS) {
-                    throw new VulkanException(result, "无法创建 Vulkan 信号量");
-                }
-
-                result = dCmd.createFence(device, fenceCreateInfo, null, pInFlightFence);
-                if (result != VkResult.SUCCESS) {
-                    throw new VulkanException(result, "无法创建 Vulkan 围栏");
-                }
-
-                if (dedicatedComputeQueue != null) {
-                    VkSemaphore.Ptr pComputeFinishedSemaphore = pComputeFinishedSemaphores.offset(i);
-                    result = dCmd.createSemaphore(device, semaphoreCreateInfo, null, pComputeFinishedSemaphore);
-                    if (result != VkResult.SUCCESS) {
-                        throw new VulkanException(result, "无法创建 Vulkan 计算完成信号量");
-                    }
-                }
-            }
-        }
-    }
-
-    private void createCommandPool() throws RenderException {
-        try (Arena arena = Arena.ofConfined()) {
-            VkCommandPoolCreateInfo commandPoolCreateInfo = VkCommandPoolCreateInfo.allocate(arena)
-                    .queueFamilyIndex(graphicsQueueFamilyIndex)
-                    .flags(
-                            VkCommandPoolCreateFlags.TRANSIENT |
-                            VkCommandPoolCreateFlags.RESET_COMMAND_BUFFER
-                    );
-
-            VkCommandPool.Ptr pCommandPool = VkCommandPool.Ptr.allocate(arena);
-            @EnumType(VkResult.class) int result =
-                    dCmd.createCommandPool(device, commandPoolCreateInfo, null, pCommandPool);
-            if (result != VkResult.SUCCESS) {
-                throw new VulkanException(result, "无法创建 Vulkan 命令池");
-            }
-            commandPool = Objects.requireNonNull(pCommandPool.read());
-
-            if (dedicatedComputeQueue != null) {
-                commandPoolCreateInfo.queueFamilyIndex(dedicatedComputeQueueFamilyIndex);
-                result = dCmd.createCommandPool(device, commandPoolCreateInfo, null, pCommandPool);
-                if (result != VkResult.SUCCESS) {
-                    throw new VulkanException(result, "无法创建 Vulkan 计算命令池");
-                }
-                computeCommandPool = Objects.requireNonNull(pCommandPool.read());
-            }
-
-            commandPoolCreateInfo
-                    .queueFamilyIndex(graphicsQueueFamilyIndex)
-                    .flags(VkCommandPoolCreateFlags.TRANSIENT);
-            result = dCmd.createCommandPool(device, commandPoolCreateInfo, null, pCommandPool);
-            if (result != VkResult.SUCCESS) {
-                throw new VulkanException(result, "无法创建 Vulkan 一次性命令池");
-            }
-            graphicsOnceCommandPool = Objects.requireNonNull(pCommandPool.read());
-
-            if (dedicatedTransferQueue != null) {
-                commandPoolCreateInfo.queueFamilyIndex(dedicatedTransferQueueFamilyIndex);
-                result = dCmd.createCommandPool(device, commandPoolCreateInfo, null, pCommandPool);
-                if (result != VkResult.SUCCESS) {
-                    throw new VulkanException(result, "无法创建 Vulkan 传输命令池");
-                }
-                transferCommandPool = Objects.requireNonNull(pCommandPool.read());
-            } else {
-                transferCommandPool = null;
-            }
-
-            if (dedicatedComputeQueue != null) {
-                commandPoolCreateInfo.queueFamilyIndex(dedicatedComputeQueueFamilyIndex);
-                result = dCmd.createCommandPool(device, commandPoolCreateInfo, null, pCommandPool);
-                if (result != VkResult.SUCCESS) {
-                    throw new VulkanException(result, "无法创建 Vulkan 计算一次性命令池");
-                }
-                computeOnceCommandPool = Objects.requireNonNull(pCommandPool.read());
-            } else {
-                computeOnceCommandPool = null;
-            }
-        }
-    }
-
-    private void createCommandBuffers() throws RenderException {
-        int frameCount = config.maxFramesInFlight;
-        commandBuffers = VkCommandBuffer.Ptr.allocate(prefabArena, frameCount);
-        if (dedicatedComputeQueue != null) {
-            computeCommandBuffers = VkCommandBuffer.Ptr.allocate(prefabArena, frameCount);
-        } else {
-            computeCommandBuffers = null;
-        }
-
-        try (Arena arena = Arena.ofConfined()) {
-            VkCommandBufferAllocateInfo commandBufferAllocateInfo = VkCommandBufferAllocateInfo.allocate(arena)
-                    .commandPool(commandPool)
-                    .level(VkCommandBufferLevel.PRIMARY)
-                    .commandBufferCount(frameCount);
-            @EnumType(VkResult.class) int result = dCmd.allocateCommandBuffers(
-                    device,
-                    commandBufferAllocateInfo,
-                    commandBuffers
-            );
-            if (result != VkResult.SUCCESS) {
-                throw new VulkanException(result, "无法分配 Vulkan 命令缓冲区");
-            }
-
-            if (dedicatedComputeQueue != null) {
-                commandBufferAllocateInfo.commandPool(computeCommandPool);
-                result = dCmd.allocateCommandBuffers(
-                        device,
-                        commandBufferAllocateInfo,
-                        computeCommandBuffers
-                );
-                if (result != VkResult.SUCCESS) {
-                    throw new VulkanException(result, "无法分配 Vulkan 计算命令缓冲区");
-                }
-            } else {
-                computeCommandBuffers = null;
-            }
-        }
-    }
-
     private void cleanup() {
-        if (computeOnceCommandPool != null) {
-            dCmd.destroyCommandPool(device, computeOnceCommandPool, null);
-        }
-        if (transferCommandPool != null) {
-            dCmd.destroyCommandPool(device, transferCommandPool, null);
-        }
-        if (computeCommandPool != null) {
-            dCmd.destroyCommandPool(device, computeCommandPool, null);
-        }
-        if (commandPool != null) {
-            dCmd.destroyCommandPool(device, commandPool, null);
-        }
         if (vmaAllocator != null) {
             vma.destroyAllocator(vmaAllocator);
-        }
-
-        if (pInFlightFences != null) {
-            for (VkFence fence : pInFlightFences) {
-                if (fence != null) {
-                    dCmd.destroyFence(device, fence, null);
-                }
-            }
-        }
-        if (pImageAvailableSemaphores != null) {
-            for (VkSemaphore semaphore : pImageAvailableSemaphores) {
-                if (semaphore != null) {
-                    dCmd.destroySemaphore(device, semaphore, null);
-                }
-            }
-        }
-        if (pComputeFinishedSemaphores != null) {
-            for (VkSemaphore semaphore : pComputeFinishedSemaphores) {
-                if (semaphore != null) {
-                    dCmd.destroySemaphore(device, semaphore, null);
-                }
-            }
         }
 
         if (vmaAllocator != null) {

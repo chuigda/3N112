@@ -52,19 +52,6 @@ public final class RenderContext implements AutoCloseable {
 
     public final VmaAllocator vmaAllocator;
 
-    public final VkSemaphore.Ptr pImageAvailableSemaphores;
-    public final @Nullable VkSemaphore.Ptr pComputeFinishedSemaphores;
-    public final VkFence.Ptr pInFlightFences;
-
-    public final VkCommandPool graphicsCommandPool;
-    public final VkCommandPool graphicsOnceCommandPool;
-    public final @Nullable VkCommandPool transferCommandPool;
-    public final @Nullable VkCommandPool computeCommandPool;
-    public final @Nullable VkCommandPool computeOnceCommandPool;
-
-    public final VkCommandBuffer.Ptr graphicsCommandBuffers;
-    public final @Nullable VkCommandBuffer.Ptr computeCommandBuffers;
-
     public final Lock graphicsQueueLock;
     public final Lock presentQueueLock;
     public final @Nullable Lock transferQueueLock;
@@ -98,20 +85,7 @@ public final class RenderContext implements AutoCloseable {
             @Nullable VkQueue transferQueue,
             @Nullable VkQueue computeQueue,
 
-            VmaAllocator vmaAllocator,
-
-            VkSemaphore.Ptr pImageAvailableSemaphores,
-            @Nullable VkSemaphore.Ptr pComputeFinishedSemaphores,
-            VkFence.Ptr pInFlightFences,
-
-            VkCommandPool graphicsCommandPool,
-            VkCommandPool graphicsOnceCommandPool,
-            @Nullable VkCommandPool transferCommandPool,
-            @Nullable VkCommandPool computeCommandPool,
-            @Nullable VkCommandPool computeOnceCommandPool,
-
-            VkCommandBuffer.Ptr graphicsCommandBuffers,
-            @Nullable VkCommandBuffer.Ptr computeCommandBuffers
+            VmaAllocator vmaAllocator
     ) {
         this.prefabArena = prefabArena;
         this.config = config;
@@ -139,19 +113,6 @@ public final class RenderContext implements AutoCloseable {
         this.computeQueue = computeQueue;
 
         this.vmaAllocator = vmaAllocator;
-
-        this.pImageAvailableSemaphores = pImageAvailableSemaphores;
-        this.pComputeFinishedSemaphores = pComputeFinishedSemaphores;
-        this.pInFlightFences = pInFlightFences;
-
-        this.graphicsCommandPool = graphicsCommandPool;
-        this.graphicsOnceCommandPool = graphicsOnceCommandPool;
-        this.transferCommandPool = transferCommandPool;
-        this.computeCommandPool = computeCommandPool;
-        this.computeOnceCommandPool = computeOnceCommandPool;
-
-        this.graphicsCommandBuffers = graphicsCommandBuffers;
-        this.computeCommandBuffers = computeCommandBuffers;
 
         this.graphicsQueueLock = new ReentrantLock();
         if (this.graphicsQueue != this.presentQueue) {
@@ -293,32 +254,7 @@ public final class RenderContext implements AutoCloseable {
             gcThread.join();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            // 不要再抛出异常
             logger.warning("RenderContext GC 线程被中断: "  + e.getMessage());
-        }
-
-        dCmd.destroyCommandPool(device, graphicsCommandPool, null);
-        dCmd.destroyCommandPool(device, graphicsOnceCommandPool, null);
-        if (transferCommandPool != null) {
-            dCmd.destroyCommandPool(device, transferCommandPool, null);
-        }
-        if (computeCommandPool != null) {
-            dCmd.destroyCommandPool(device, computeCommandPool, null);
-        }
-        if (computeOnceCommandPool != null) {
-            dCmd.destroyCommandPool(device, computeOnceCommandPool, null);
-        }
-
-        for (VkSemaphore semaphore : pImageAvailableSemaphores) {
-            dCmd.destroySemaphore(device, semaphore, null);
-        }
-        for (VkFence fence : pInFlightFences) {
-            dCmd.destroyFence(device, fence, null);
-        }
-        if (pComputeFinishedSemaphores != null) {
-            for (VkSemaphore semaphore : pComputeFinishedSemaphores) {
-                dCmd.destroySemaphore(device, semaphore, null);
-            }
         }
 
         vma.destroyAllocator(vmaAllocator);
