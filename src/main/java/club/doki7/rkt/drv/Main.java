@@ -44,8 +44,8 @@ public final class Main {
                 swapchain = Swapchain.create(cx, window.width, window.height);
                 window.framebufferResized = false;
             }
+            cx.gc();
         }
-        cx.waitDeviceIdle();
 
         swapchain.close();
         cx.close();

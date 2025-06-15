@@ -78,6 +78,7 @@ public final class Swapchain implements AutoCloseable {
 
     @Override
     public void close() {
+        cx.waitDeviceIdle();
         for (VkImageView imageView : pSwapchainImageViews) {
             cx.dCmd.destroyImageView(cx.device, imageView, null);
         }
