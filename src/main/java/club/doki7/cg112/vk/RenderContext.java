@@ -17,6 +17,7 @@ import club.doki7.vulkan.handle.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
+import java.lang.ref.Cleaner;
 import java.util.LinkedList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -68,6 +69,8 @@ public final class RenderContext implements AutoCloseable {
     public final Lock presentQueueLock;
     public final @Nullable Lock transferQueueLock;
     public final @Nullable Lock computeQueueLock;
+
+    public final Cleaner cleaner = Cleaner.create();
 
     public RenderContext(
             Arena prefabArena,

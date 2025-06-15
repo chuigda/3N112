@@ -2,6 +2,7 @@ package club.doki7.cg112.vk;
 
 import club.doki7.cg112.exc.RenderException;
 import club.doki7.cg112.vk.init.SwapchainInit;
+import club.doki7.cg112.vk.sync.Semaphore;
 import club.doki7.ffm.NativeLayout;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.IntPtr;
@@ -21,7 +22,6 @@ public final class Swapchain implements AutoCloseable {
     public final VkSwapchainKHR vkSwapchain;
     public final VkImage.Ptr pSwapchainImages;
     public final VkImageView.Ptr pSwapchainImageViews;
-    public final VkSemaphore.Ptr pRenderFinishedSemaphores;
 
     public Swapchain(
             RenderContext cx,
@@ -29,8 +29,7 @@ public final class Swapchain implements AutoCloseable {
             VkExtent2D swapExtent,
             VkSwapchainKHR vkSwapchain,
             VkImage.Ptr pSwapchainImages,
-            VkImageView.Ptr pSwapchainImageViews,
-            VkSemaphore.Ptr pRenderFinishedSemaphores
+            VkImageView.Ptr pSwapchainImageViews
     ) {
         this.cx = cx;
         this.surfaceFormat = surfaceFormat;
@@ -38,10 +37,8 @@ public final class Swapchain implements AutoCloseable {
         this.vkSwapchain = vkSwapchain;
         this.pSwapchainImages = pSwapchainImages;
         this.pSwapchainImageViews = pSwapchainImageViews;
-        this.pRenderFinishedSemaphores = pRenderFinishedSemaphores;
 
         this.presentInfo = VkPresentInfoKHR.allocate(cx.prefabArena)
-                .waitSemaphoreCount(1)
                 .swapchainCount(1)
                 .pSwapchains(VkSwapchainKHR.Ptr.allocateV(cx.prefabArena, vkSwapchain));
     }
@@ -52,21 +49,25 @@ public final class Swapchain implements AutoCloseable {
 
     public @EnumType(VkResult.class) int acquireNextImage(
             IntPtr pImageIndex,
-            @Nullable VkSemaphore signalSemaphore
+            @Nullable Semaphore signalSemaphore
     ) {
         return cx.dCmd.acquireNextImageKHR(
                 cx.device,
                 vkSwapchain,
                 NativeLayout.UINT64_MAX,
-                signalSemaphore,
+                signalSemaphore != null ? signalSemaphore.handle : null,
                 null,
                 pImageIndex
         );
     }
 
-    public @EnumType(VkResult.class) int present(IntPtr pImageIndex) {
+    public @EnumType(VkResult.class) int present(
+            VkSemaphore.Ptr pWaitSemaphores,
+            IntPtr pImageIndex
+    ) {
         presentInfo
-                .pWaitSemaphores(pRenderFinishedSemaphores.offset(pImageIndex.read()))
+                .waitSemaphoreCount((int) pWaitSemaphores.size())
+                .pWaitSemaphores(pWaitSemaphores)
                 .pImageIndices(pImageIndex);
         try {
             cx.presentQueueLock.lock();
@@ -78,9 +79,6 @@ public final class Swapchain implements AutoCloseable {
 
     @Override
     public void close() {
-        for (VkSemaphore semaphore : pRenderFinishedSemaphores) {
-            cx.dCmd.destroySemaphore(cx.device, semaphore, null);
-        }
         for (VkImageView imageView : pSwapchainImageViews) {
             cx.dCmd.destroyImageView(cx.device, imageView, null);
         }

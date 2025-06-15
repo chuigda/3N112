@@ -14,7 +14,6 @@ import club.doki7.vulkan.datatype.*;
 import club.doki7.vulkan.enumtype.*;
 import club.doki7.vulkan.handle.VkImage;
 import club.doki7.vulkan.handle.VkImageView;
-import club.doki7.vulkan.handle.VkSemaphore;
 import club.doki7.vulkan.handle.VkSwapchainKHR;
 
 import java.lang.foreign.Arena;
@@ -32,7 +31,6 @@ public final class SwapchainInit {
     private VkSwapchainKHR vkSwapchain;
     private VkImage.Ptr pSwapchainImages;
     private VkImageView.Ptr pSwapchainImageViews;
-    private VkSemaphore.Ptr pRenderFinishedSemaphores;
 
     public SwapchainInit(RenderContext cx) {
         this.cx = cx;
@@ -56,7 +54,6 @@ public final class SwapchainInit {
             createSwapchain();
             getSwapchainImages();
             createSwapchainImageViews();
-            createSyncObjects();
         } catch (Throwable e) {
             cleanup();
             throw e;
@@ -69,8 +66,7 @@ public final class SwapchainInit {
 
                 vkSwapchain,
                 pSwapchainImages,
-                pSwapchainImageViews,
-                pRenderFinishedSemaphores
+                pSwapchainImageViews
         );
     }
 
@@ -170,36 +166,7 @@ public final class SwapchainInit {
         }
     }
 
-    private void createSyncObjects() throws RenderException {
-        pRenderFinishedSemaphores = VkSemaphore.Ptr.allocate(cx.prefabArena, imageCount);
-
-        try (Arena arena = Arena.ofConfined()) {
-            VkSemaphoreCreateInfo semaphoreCreateInfo = VkSemaphoreCreateInfo.allocate(arena);
-
-            for (int i = 0; i < imageCount; i++) {
-                VkSemaphore.Ptr pSemaphore = pRenderFinishedSemaphores.offset(i);
-                @EnumType(VkResult.class) int result = cx.dCmd.createSemaphore(
-                        cx.device,
-                        semaphoreCreateInfo,
-                        null,
-                        pSemaphore
-                );
-                if (result != VkResult.SUCCESS) {
-                    throw new RenderException("无法创建 Vulkan 信号量, 错误代码: " + VkResult.explain(result));
-                }
-            }
-        }
-    }
-
     private void cleanup() {
-        if (pRenderFinishedSemaphores != null) {
-            for (VkSemaphore semaphore : pRenderFinishedSemaphores) {
-                if (semaphore != null) {
-                    cx.dCmd.destroySemaphore(cx.device, semaphore, null);
-                }
-            }
-        }
-
         if (pSwapchainImageViews != null) {
             for (VkImageView imageView : pSwapchainImageViews) {
                 if (imageView != null) {

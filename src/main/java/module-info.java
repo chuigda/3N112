@@ -6,4 +6,8 @@ module club.doki7.cg112 {
 
     requires java.logging;
     requires org.jetbrains.annotations;
+
+    exports club.doki7.cg112.vk;
+    exports club.doki7.cg112.exc;
+    exports club.doki7.cg112.util;
 }
