@@ -11,6 +11,7 @@ import club.doki7.vulkan.enumtype.VkResult;
 import club.doki7.vulkan.handle.*;
 import org.jetbrains.annotations.Nullable;
 
+import java.lang.foreign.Arena;
 import java.util.logging.Logger;
 
 public final class Swapchain implements AutoCloseable {
@@ -61,15 +62,13 @@ public final class Swapchain implements AutoCloseable {
         );
     }
 
-    public @EnumType(VkResult.class) int present(
-            VkSemaphore.Ptr pWaitSemaphores,
-            IntPtr pImageIndex
-    ) {
-        presentInfo
-                .waitSemaphoreCount((int) pWaitSemaphores.size())
-                .pWaitSemaphores(pWaitSemaphores)
-                .pImageIndices(pImageIndex);
-        try {
+    public @EnumType(VkResult.class) int present(Semaphore waitSemaphore, IntPtr pImageIndex) {
+        try (Arena arena = Arena.ofConfined()) {
+            presentInfo
+                    .waitSemaphoreCount(1)
+                    .pWaitSemaphores(VkSemaphore.Ptr.allocateV(arena, waitSemaphore.handle))
+                    .pImageIndices(pImageIndex);
+
             cx.presentQueueLock.lock();
             return cx.dCmd.queuePresentKHR(cx.presentQueue, presentInfo);
         } finally {
