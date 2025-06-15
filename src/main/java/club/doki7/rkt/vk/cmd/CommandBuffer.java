@@ -4,19 +4,18 @@ import club.doki7.rkt.vk.RenderContext;
 import club.doki7.vulkan.handle.VkCommandBuffer;
 
 public final class CommandBuffer {
-    public final VkCommandBuffer vkCommandBuffer;
+    public final VkCommandBuffer handle;
+    public final boolean canReset;
 
     public void reset(RenderContext cx) {
         if (!canReset) {
             throw new IllegalStateException("This command buffer cannot be reset.");
         }
-        cx.dCmd.resetCommandBuffer(vkCommandBuffer, 0);
+        cx.dCmd.resetCommandBuffer(handle, 0);
     }
 
-    CommandBuffer(VkCommandBuffer vkCommandBuffer, boolean canReset) {
-        this.vkCommandBuffer = vkCommandBuffer;
+    CommandBuffer(VkCommandBuffer handle, boolean canReset) {
+        this.handle = handle;
         this.canReset = canReset;
     }
-
-    private final boolean canReset;
 }

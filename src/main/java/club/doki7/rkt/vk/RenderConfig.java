@@ -10,9 +10,7 @@ public final class RenderConfig {
         int rank(VkPhysicalDeviceProperties properties);
 
         /// 默认的物理设备评分器，总是返回 0。
-        static PhysicalDeviceRanker dummy() {
-            return ignored -> 0;
-        }
+        PhysicalDeviceRanker DUMMY = _ -> 0;
     }
 
     /// 应用程序名称，作为提示信息传入
@@ -23,9 +21,11 @@ public final class RenderConfig {
     public Version appVersion = new Version(1, 0, 0, 0);
 
     /// 物理设备选择器。渲染引擎会根据选择器给出的评分对设备进行排序，选择评分最高的设备。
-    public PhysicalDeviceRanker physicalDeviceRanker = PhysicalDeviceRanker.dummy();
+    public PhysicalDeviceRanker physicalDeviceRanker = PhysicalDeviceRanker.DUMMY;
+
     /// 无论物理设备是否具有专用传输队列，都不使用专用传输队列上传数据。
     public boolean noTransferQueue = false;
+
     /// 无论物理设备是否具有专用计算队列，都不使用专用计算队列进行计算。
     public boolean noComputeQueue = false;
 
@@ -53,5 +53,7 @@ public final class RenderConfig {
     public VSync vsync = VSync.PREFER_OFF;
 
     /// 允许同时渲染多少帧。
+    ///
+    /// 提高这个值理论上能够提高 GPU 处理任务的并行程度，但同样也会增加用户可见的延迟。
     public int maxFramesInFlight = 2;
 }

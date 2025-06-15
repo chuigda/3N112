@@ -2,7 +2,7 @@ package club.doki7.rkt.vk;
 
 import club.doki7.rkt.exc.RenderException;
 import club.doki7.rkt.vk.init.SwapchainInit;
-import club.doki7.rkt.vk.sync.Semaphore;
+import club.doki7.rkt.vk.sync.SemaphoreVK;
 import club.doki7.ffm.NativeLayout;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.IntPtr;
@@ -50,7 +50,7 @@ public final class Swapchain implements AutoCloseable {
 
     public @EnumType(VkResult.class) int acquireNextImage(
             IntPtr pImageIndex,
-            @Nullable Semaphore signalSemaphore
+            @Nullable SemaphoreVK signalSemaphore
     ) {
         return cx.dCmd.acquireNextImageKHR(
                 cx.device,
@@ -62,7 +62,7 @@ public final class Swapchain implements AutoCloseable {
         );
     }
 
-    public @EnumType(VkResult.class) int present(Semaphore waitSemaphore, IntPtr pImageIndex) {
+    public @EnumType(VkResult.class) int present(SemaphoreVK waitSemaphore, IntPtr pImageIndex) {
         try (Arena arena = Arena.ofConfined()) {
             presentInfo
                     .waitSemaphoreCount(1)

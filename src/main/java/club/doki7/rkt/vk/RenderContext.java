@@ -1,18 +1,25 @@
 package club.doki7.rkt.vk;
 
+import club.doki7.ffm.annotation.EnumType;
+import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.rkt.exc.RenderException;
+import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.util.Pair;
 import club.doki7.rkt.util.Ref;
+import club.doki7.rkt.vk.cmd.SubmitInfo;
 import club.doki7.rkt.vk.init.ContextInit;
 import club.doki7.ffm.annotation.Unsafe;
 import club.doki7.glfw.GLFW;
 import club.doki7.glfw.handle.GLFWwindow;
 import club.doki7.vma.VMA;
 import club.doki7.vma.handle.VmaAllocator;
+import club.doki7.vulkan.bitmask.VkPipelineStageFlags;
 import club.doki7.vulkan.command.VkDeviceCommands;
 import club.doki7.vulkan.command.VkEntryCommands;
 import club.doki7.vulkan.command.VkInstanceCommands;
 import club.doki7.vulkan.command.VkStaticCommands;
+import club.doki7.vulkan.datatype.VkSubmitInfo;
+import club.doki7.vulkan.enumtype.VkResult;
 import club.doki7.vulkan.handle.*;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,6 +33,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 public final class RenderContext implements AutoCloseable {
+    public final Cleaner cleaner = Cleaner.create();
+
     public final Arena prefabArena;
     public final RenderConfig config;
     public final VkStaticCommands sCmd;
@@ -45,19 +54,7 @@ public final class RenderContext implements AutoCloseable {
     public final VkSurfaceKHR surface;
 
     public final VkDevice device;
-    public final VkQueue graphicsQueue;
-    public final VkQueue presentQueue;
-    public final @Nullable VkQueue transferQueue;
-    public final @Nullable VkQueue computeQueue;
-
     public final VmaAllocator vmaAllocator;
-
-    public final Lock graphicsQueueLock;
-    public final Lock presentQueueLock;
-    public final @Nullable Lock transferQueueLock;
-    public final @Nullable Lock computeQueueLock;
-
-    public final Cleaner cleaner = Cleaner.create();
 
     public RenderContext(
             Arena prefabArena,
@@ -161,6 +158,28 @@ public final class RenderContext implements AutoCloseable {
 
     public boolean hasTransferQueue() {
         return transferQueue != null;
+    }
+
+    public boolean hasComputeQueue() {
+        return computeQueue != null;
+    }
+
+    public void submitGraphics(SubmitInfo info, @Nullable VkFence fence) throws VulkanException {
+        submitToQueue(graphicsQueue, graphicsQueueLock, info, fence);
+    }
+
+    public void submitCompute(SubmitInfo info, @Nullable VkFence fence) throws VulkanException {
+        if (!hasComputeQueue()) {
+            throw new IllegalStateException("没有可用的计算队列");
+        }
+        submitToQueue(computeQueue, computeQueueLock, info, fence);
+    }
+
+    public void submitTransfer(SubmitInfo info, @Nullable VkFence fence) throws VulkanException {
+        if (!hasTransferQueue()) {
+            throw new IllegalStateException("没有可用的传输队列");
+        }
+        submitToQueue(transferQueue, transferQueueLock, info, fence);
     }
 
     public void waitDeviceIdle() {
@@ -271,6 +290,62 @@ public final class RenderContext implements AutoCloseable {
 
         logger.info("已销毁 RenderContext 资源");
     }
+
+    private void submitToQueue(
+            VkQueue queue,
+            Lock queueLock,
+            SubmitInfo info,
+            @Nullable VkFence fence
+    ) throws VulkanException {
+        try (Arena arena = Arena.ofConfined()) {
+            VkCommandBuffer.Ptr pCommandBuffers =
+                    VkCommandBuffer.Ptr.allocate(arena, info.commandBuffers.size());
+            for (int i = 0; i < info.commandBuffers.size(); i++) {
+                pCommandBuffers.write(i, info.commandBuffers.get(i).handle);
+            }
+            VkSemaphore.Ptr pWaitSemaphores =
+                    VkSemaphore.Ptr.allocate(arena, info.waitSemaphores.size());
+            for (int i = 0; i < info.waitSemaphores.size(); i++) {
+                pWaitSemaphores.write(i, info.waitSemaphores.get(i).handle);
+            }
+            @EnumType(VkPipelineStageFlags.class) IntPtr pWaitDstStageMask =
+                    IntPtr.allocate(arena, info.waitDstStageMasks.size());
+            for (int i = 0; i < info.waitDstStageMasks.size(); i++) {
+                pWaitDstStageMask.write(i, info.waitDstStageMasks.get(i));
+            }
+            VkSemaphore.Ptr pSignalSemaphores =
+                    VkSemaphore.Ptr.allocate(arena, info.signalSemaphores.size());
+            for (int i = 0; i < info.signalSemaphores.size(); i++) {
+                pSignalSemaphores.write(i, info.signalSemaphores.get(i).handle);
+            }
+
+            VkSubmitInfo submitInfoVk = VkSubmitInfo.allocate(arena)
+                    .commandBufferCount(info.commandBuffers.size())
+                    .pCommandBuffers(pCommandBuffers)
+                    .waitSemaphoreCount(info.waitSemaphores.size())
+                    .pWaitSemaphores(pWaitSemaphores)
+                    .pWaitDstStageMask(pWaitDstStageMask)
+                    .signalSemaphoreCount(info.signalSemaphores.size())
+                    .pSignalSemaphores(pSignalSemaphores);
+
+            queueLock.lock();
+            @EnumType(VkResult.class) int result = dCmd.queueSubmit(queue, 1, submitInfoVk, fence);
+            if (result != VkResult.SUCCESS) {
+                throw new VulkanException(result, "无法提交到图形队列");
+            }
+        } finally {
+            queueLock.unlock();
+        }
+    }
+
+    final VkQueue graphicsQueue;
+    final VkQueue presentQueue;
+    final @Nullable VkQueue transferQueue;
+    final @Nullable VkQueue computeQueue;
+    final Lock graphicsQueueLock;
+    final Lock presentQueueLock;
+    final @Nullable Lock transferQueueLock;
+    final @Nullable Lock computeQueueLock;
 
     private final Ref<LinkedList<IDisposeOnContext>> disposeList;
     private final LinkedList<Pair<IDisposeOnContext, Integer>> countedList;
