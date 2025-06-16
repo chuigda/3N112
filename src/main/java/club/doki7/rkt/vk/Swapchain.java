@@ -1,7 +1,9 @@
 package club.doki7.rkt.vk;
 
 import club.doki7.rkt.exc.RenderException;
+import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.vk.init.SwapchainInit;
+import club.doki7.rkt.vk.sync.Fence;
 import club.doki7.rkt.vk.sync.SemaphoreVK;
 import club.doki7.ffm.NativeLayout;
 import club.doki7.ffm.annotation.EnumType;
@@ -48,21 +50,55 @@ public final class Swapchain implements AutoCloseable {
         return new SwapchainInit(cx).init(width, height);
     }
 
-    public @EnumType(VkResult.class) int acquireNextImage(
+    public enum AcquireResult {
+        OPTIMAL    (/*isSuccess=*/true,  /*isOptimal=*/true),
+        SUBOPTIMAL (/*isSuccess=*/true,  /*isOptimal=*/false),
+        OUTDATED   (/*isSuccess=*/false, /*isOptimal=*/false);
+
+        public final boolean isSuccess;
+        public final boolean isOptimal;
+
+        AcquireResult(boolean isSuccess, boolean isOptimal) {
+            this.isSuccess = isSuccess;
+            this.isOptimal = isOptimal;
+        }
+    }
+
+    public AcquireResult acquireNextImage(
             IntPtr pImageIndex,
-            @Nullable SemaphoreVK signalSemaphore
-    ) {
-        return cx.dCmd.acquireNextImageKHR(
+            @Nullable SemaphoreVK signalSemaphore,
+            @Nullable Fence fence
+    ) throws VulkanException {
+        @EnumType(VkResult.class) int result = cx.dCmd.acquireNextImageKHR(
                 cx.device,
                 vkSwapchain,
                 NativeLayout.UINT64_MAX,
                 signalSemaphore != null ? signalSemaphore.handle : null,
-                null,
+                fence != null ? fence.handle : null,
                 pImageIndex
         );
+        return switch (result) {
+            case VkResult.SUCCESS -> AcquireResult.OPTIMAL;
+            case VkResult.SUBOPTIMAL_KHR -> AcquireResult.SUBOPTIMAL;
+            case VkResult.ERROR_OUT_OF_DATE_KHR -> AcquireResult.OUTDATED;
+            default -> throw new VulkanException(result, "获取交换链图像索引失败");
+        };
     }
 
-    public @EnumType(VkResult.class) int present(SemaphoreVK waitSemaphore, IntPtr pImageIndex) {
+    public AcquireResult acquireNextImage(IntPtr pImageIndex, Fence signalFence) throws RenderException {
+        return acquireNextImage(pImageIndex, null, signalFence);
+    }
+
+    public AcquireResult acquireNextImage(IntPtr pImageIndex, SemaphoreVK signalSemaphore) throws RenderException {
+        return acquireNextImage(pImageIndex, signalSemaphore, null);
+    }
+
+    public enum PresentResult { SUCCESS, SUBOPTIMAL }
+
+    public PresentResult present(
+            SemaphoreVK waitSemaphore,
+            IntPtr pImageIndex
+    ) throws VulkanException {
         try (Arena arena = Arena.ofConfined()) {
             presentInfo
                     .waitSemaphoreCount(1)
@@ -70,7 +106,13 @@ public final class Swapchain implements AutoCloseable {
                     .pImageIndices(pImageIndex);
 
             cx.presentQueueLock.lock();
-            return cx.dCmd.queuePresentKHR(cx.presentQueue, presentInfo);
+            @EnumType(VkResult.class) int result =
+                    cx.dCmd.queuePresentKHR(cx.presentQueue, presentInfo);
+            return switch (result) {
+                case VkResult.SUCCESS -> PresentResult.SUCCESS;
+                case VkResult.SUBOPTIMAL_KHR -> PresentResult.SUBOPTIMAL;
+                default -> throw new VulkanException(result, "提交交换链图像失败");
+            };
         } finally {
             cx.presentQueueLock.unlock();
         }

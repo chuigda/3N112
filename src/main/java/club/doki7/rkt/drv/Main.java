@@ -7,9 +7,7 @@ import club.doki7.rkt.vk.RenderWindow;
 import club.doki7.rkt.vk.Swapchain;
 import club.doki7.glfw.GLFW;
 import club.doki7.glfw.GLFWLoader;
-import club.doki7.rkt.vk.sync.SemaphoreVK;
 import club.doki7.vulkan.command.VulkanLoader;
-import club.doki7.vulkan.handle.VkSemaphore;
 
 public final class Main {
     static {
@@ -39,15 +37,18 @@ public final class Main {
         RenderContext cx = RenderContext.create(glfw, window.rawWindow, config);
         Swapchain swapchain = Swapchain.create(cx, 800, 600);
 
-        SemaphoreVK semaphore = SemaphoreVK.create(cx);
         while (window.tick()) {
-            if (window.framebufferResized) {
-                cx.waitDeviceIdle();
-                swapchain.close();
-                swapchain = Swapchain.create(cx, window.width, window.height);
-                window.framebufferResized = false;
+            try {
+                if (window.framebufferResized) {
+                    cx.waitDeviceIdle();
+                    swapchain.close();
+                    swapchain = Swapchain.create(cx, window.width, window.height);
+                    window.framebufferResized = false;
+                    continue;
+                }
+            } finally {
+                cx.gc();
             }
-            cx.gc();
         }
 
         swapchain.close();
