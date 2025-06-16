@@ -3,6 +3,8 @@ package club.doki7.rkt.vk;
 import club.doki7.vulkan.Version;
 import club.doki7.vulkan.datatype.VkPhysicalDeviceProperties;
 
+import java.util.List;
+
 public final class RenderConfig {
     @FunctionalInterface
     public interface PhysicalDeviceRanker {
@@ -16,6 +18,7 @@ public final class RenderConfig {
     /// 应用程序名称，作为提示信息传入
     /// {@link club.doki7.vulkan.datatype.VkApplicationInfo VkApplicationInfo}。
     public String appName = "Vulkan Application";
+
     /// 应用程序版本，作为提示信息传入
     /// {@link club.doki7.vulkan.datatype.VkApplicationInfo VkApplicationInfo}。
     public Version appVersion = new Version(1, 0, 0, 0);
@@ -31,6 +34,15 @@ public final class RenderConfig {
 
     /// 是否启用主机复制，这在特定情况下可以提高性能，但某些设备可能不支持。
     public boolean enableHostCopy = false;
+
+    /// 要使用的 Vulkan API 版本
+    public Version vulkanVersion = Version.VK_API_VERSION_1_0;
+
+    /// 要额外启用的实例级扩展列表。
+    public List<String> additionalInstanceExtensions = List.of();
+
+    /// 要额外启用的设备级扩展列表。
+    public List<String> additionalDeviceExtensions = List.of();
 
     /// 是否启用各向异性过滤。
     public boolean enableAnisotropicFiltering = true;

@@ -26,6 +26,8 @@ import club.doki7.vulkan.handle.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
 
@@ -140,7 +142,7 @@ public final class ContextInit {
                     .applicationVersion(config.appVersion.encode())
                     .pEngineName(BytePtr.allocateString(arena, "RD-275M LF Rocket Engine"))
                     .engineVersion(new Version(0x07, 0x21, 0x0D, 0x00).encode())
-                    .apiVersion(Version.VK_API_VERSION_1_0.encode());
+                    .apiVersion(config.vulkanVersion.encode());
 
             IntPtr pGLFWExtensionCount = IntPtr.allocate(arena);
             PointerPtr glfwExtensions = glfw.getRequiredInstanceExtensions(pGLFWExtensionCount);
@@ -150,34 +152,28 @@ public final class ContextInit {
             int glfwExtensionCount = pGLFWExtensionCount.read();
             glfwExtensions = glfwExtensions.reinterpret(glfwExtensionCount);
 
-            PointerPtr extensions;
+            List<String> userExtensions = new ArrayList<>(alwaysRequestInstanceExtensions);
             if (enableValidationLayers) {
-                extensions = PointerPtr.allocate(arena, glfwExtensionCount + 2);
-            } else {
-                extensions = PointerPtr.allocate(arena, glfwExtensionCount + 1);
+                userExtensions.add(VkConstants.EXT_DEBUG_UTILS_EXTENSION_NAME);
             }
+            userExtensions.addAll(config.additionalInstanceExtensions);
 
+            PointerPtr ppInstanceExtensions =
+                    PointerPtr.allocate(arena, glfwExtensionCount + userExtensions.size());
             for (int i = 0; i < glfwExtensionCount; i++) {
-                extensions.write(i, glfwExtensions.read(i));
+                ppInstanceExtensions.write(i, glfwExtensions.read(i));
             }
-            extensions.write(
-                    glfwExtensionCount,
-                    BytePtr.allocateString(
-                            arena,
-                            VkConstants.KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
-                    )
-            );
-            if (enableValidationLayers) {
-                extensions.write(
-                        glfwExtensionCount + 1,
-                        BytePtr.allocateString(arena, VkConstants.EXT_DEBUG_UTILS_EXTENSION_NAME)
+            for (int i = 0; i < userExtensions.size(); i++) {
+                ppInstanceExtensions.write(
+                        glfwExtensionCount + i,
+                        BytePtr.allocateString(arena, userExtensions.get(i))
                 );
             }
 
             VkInstanceCreateInfo instanceCreateInfo = VkInstanceCreateInfo.allocate(arena)
                     .pApplicationInfo(appInfo)
-                    .enabledExtensionCount((int) extensions.size())
-                    .ppEnabledExtensionNames(extensions);
+                    .enabledExtensionCount((int) ppInstanceExtensions.size())
+                    .ppEnabledExtensionNames(ppInstanceExtensions);
 
             if (enableValidationLayers) {
                 PointerPtr ppEnabledLayerNames = PointerPtr.allocateV(
@@ -432,24 +428,15 @@ public final class ContextInit {
                         .pQueuePriorities(pQueuePriorities);
             }
 
-            PointerPtr ppDeviceExtensions;
+            List<String> extensions = new ArrayList<>(alwaysRequestDeviceExtensions);
             if (config.enableHostCopy) {
-                ppDeviceExtensions = PointerPtr.allocate(arena, 1 + 5 + 3);
-            } else {
-                ppDeviceExtensions = PointerPtr.allocate(arena, 1 + 5);
+                extensions.addAll(hostCopyDeviceExtensions);
             }
+            extensions.addAll(config.additionalDeviceExtensions);
 
-            ppDeviceExtensions.write(0, BytePtr.allocateString(arena, VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME));
-            ppDeviceExtensions.write(1, BytePtr.allocateString(arena, VkConstants.KHR_DYNAMIC_RENDERING_EXTENSION_NAME));
-            ppDeviceExtensions.write(2, BytePtr.allocateString(arena, VkConstants.KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME));
-            ppDeviceExtensions.write(3, BytePtr.allocateString(arena, VkConstants.KHR_CREATE_RENDERPASS_2_EXTENSION_NAME));
-            ppDeviceExtensions.write(4, BytePtr.allocateString(arena, VkConstants.KHR_MULTIVIEW_EXTENSION_NAME));
-            ppDeviceExtensions.write(5, BytePtr.allocateString(arena, VkConstants.KHR_MAINTENANCE_2_EXTENSION_NAME));
-
-            if (config.enableHostCopy) {
-                ppDeviceExtensions.write(6, BytePtr.allocateString(arena, VkConstants.EXT_HOST_IMAGE_COPY_EXTENSION_NAME));
-                ppDeviceExtensions.write(7, BytePtr.allocateString(arena, VkConstants.KHR_COPY_COMMANDS_2_EXTENSION_NAME));
-                ppDeviceExtensions.write(8, BytePtr.allocateString(arena, VkConstants.KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME));
+            PointerPtr ppDeviceExtensions = PointerPtr.allocate(arena, extensions.size());
+            for (int i = 0; i < extensions.size(); i++) {
+                ppDeviceExtensions.write(i, BytePtr.allocateString(arena, extensions.get(i)));
             }
 
             VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures =
@@ -590,4 +577,21 @@ public final class ContextInit {
 
     private static final String VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
     private static final Logger logger = Logger.getLogger(ContextInit.class.getName());
+
+    private static final List<String> alwaysRequestInstanceExtensions = List.of(
+            VkConstants.KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
+    );
+    private static final List<String> alwaysRequestDeviceExtensions = List.of(
+            VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME,
+            VkConstants.KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+            VkConstants.KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+            VkConstants.KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+            VkConstants.KHR_MULTIVIEW_EXTENSION_NAME,
+            VkConstants.KHR_MAINTENANCE_2_EXTENSION_NAME
+    );
+    private static final List<String> hostCopyDeviceExtensions = List.of(
+            VkConstants.EXT_HOST_IMAGE_COPY_EXTENSION_NAME,
+            VkConstants.KHR_COPY_COMMANDS_2_EXTENSION_NAME,
+            VkConstants.KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME
+    );
 }
