@@ -85,11 +85,17 @@ public final class Swapchain implements AutoCloseable {
         };
     }
 
-    public AcquireResult acquireNextImage(IntPtr pImageIndex, Fence signalFence) throws RenderException {
+    public AcquireResult acquireNextImage(
+            IntPtr pImageIndex,
+            Fence signalFence
+    ) throws RenderException {
         return acquireNextImage(pImageIndex, null, signalFence);
     }
 
-    public AcquireResult acquireNextImage(IntPtr pImageIndex, SemaphoreVK signalSemaphore) throws RenderException {
+    public AcquireResult acquireNextImage(
+            IntPtr pImageIndex,
+            SemaphoreVK signalSemaphore
+    ) throws RenderException {
         return acquireNextImage(pImageIndex, signalSemaphore, null);
     }
 
