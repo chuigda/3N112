@@ -40,7 +40,7 @@ public final class ShaderModule implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         cleanable.clean();
     }
 
