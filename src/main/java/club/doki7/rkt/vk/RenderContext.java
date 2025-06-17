@@ -228,18 +228,6 @@ public final class RenderContext implements AutoCloseable {
         return cleanable;
     }
 
-    public void dispose(IDisposeOnContext item) {
-        synchronized (disposeList) {
-            disposeList.value.add(item);
-        }
-    }
-
-    @Unsafe
-    public void disposeImmediate(IDisposeOnContext item) {
-        boolean result = gcQueue.offer(item);
-        assert result;
-    }
-
     public void gc() {
         countedList.removeIf(it -> {
             if (it.second >= config.maxFramesInFlight + 1) {
@@ -358,6 +346,18 @@ public final class RenderContext implements AutoCloseable {
         } finally {
             queueLock.unlock();
         }
+    }
+
+    private void dispose(IDisposeOnContext item) {
+        synchronized (disposeList) {
+            disposeList.value.add(item);
+        }
+    }
+
+    @Unsafe
+    private void disposeImmediate(IDisposeOnContext item) {
+        boolean result = gcQueue.offer(item);
+        assert result;
     }
 
     final VkQueue graphicsQueue;
