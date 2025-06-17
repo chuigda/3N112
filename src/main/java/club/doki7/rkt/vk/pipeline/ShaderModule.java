@@ -17,7 +17,7 @@ public final class ShaderModule implements AutoCloseable {
     public final VkShaderModule handle;
 
     public static ShaderModule create(RenderContext cx, byte[] code) throws VulkanException {
-        assert code.length % 4 == 0 : "Shader code length must be a multiple of 4 bytes";
+        assert code.length % 4 == 0 : "SPIRV 字节码长度必须是 4 的倍数";
 
         try (Arena arena = Arena.ofConfined()) {
             VkShaderModuleCreateInfo createInfo = VkShaderModuleCreateInfo.allocate(arena)
