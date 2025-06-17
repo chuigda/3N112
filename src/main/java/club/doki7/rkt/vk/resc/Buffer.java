@@ -70,7 +70,7 @@ public final class Buffer implements AutoCloseable {
         }
     }
 
-    public static Buffer createStaging(RenderContext cx, long size) throws VulkanException {
+    public static Buffer createStagingBuffer(RenderContext cx, long size) throws VulkanException {
         return create(
                 cx,
                 size,

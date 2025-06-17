@@ -579,18 +579,24 @@ public final class ContextInit {
     private static final Logger logger = Logger.getLogger(ContextInit.class.getName());
 
     private static final List<String> alwaysRequestInstanceExtensions = List.of(
+            // dependency of KHR_dynamic_rendering and EXT_host_image_copy
             VkConstants.KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
     );
     private static final List<String> alwaysRequestDeviceExtensions = List.of(
+            // swapchain
             VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME,
+            // dynamic rendering feature
             VkConstants.KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+            // dependencies of KHR_dynamic_rendering
             VkConstants.KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
             VkConstants.KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
             VkConstants.KHR_MULTIVIEW_EXTENSION_NAME,
             VkConstants.KHR_MAINTENANCE_2_EXTENSION_NAME
     );
     private static final List<String> hostCopyDeviceExtensions = List.of(
+            // host image copy feature
             VkConstants.EXT_HOST_IMAGE_COPY_EXTENSION_NAME,
+            // dependencies of EXT_host_image_copy
             VkConstants.KHR_COPY_COMMANDS_2_EXTENSION_NAME,
             VkConstants.KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME
     );
