@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 
 /// @see ImageLoader
 /// @see ImageManipulator
-public record Image(
+public record CPUImage(
     @NotNull BytePtr data,
     int width,
     int height,

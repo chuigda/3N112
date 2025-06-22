@@ -9,7 +9,6 @@ import club.doki7.stb.imagewrite.STBIW;
 import club.doki7.stb.imagewrite.STBWUtil;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -25,7 +24,7 @@ public class ImageManipulator extends ImageLoader {
         stbIW = new STBIW(libSTB);
     }
 
-    public void writePngPath(@NotNull Image image, @NotNull String path) {
+    public void writePngPath(@NotNull CPUImage image, @NotNull String path) {
         try (Arena arena = Arena.ofConfined()) {
             stbIW.writePng(BytePtr.allocateString(arena, path),
                 image.width(), image.height(), image.numChannels(),
@@ -34,7 +33,7 @@ public class ImageManipulator extends ImageLoader {
         }
     }
 
-    public void writePngStream(@NotNull Image image, @NotNull OutputStream stream) {
+    public void writePngStream(@NotNull CPUImage image, @NotNull OutputStream stream) {
         try (Arena arena = Arena.ofConfined()) {
             stbIW.writePngToFunc(
                 STBWUtil.makeWriteCallback(arena, ExcUtil.sneakyConsumer(segment ->
@@ -46,7 +45,7 @@ public class ImageManipulator extends ImageLoader {
         }
     }
 
-    public @NotNull Image resize(@NotNull Image image, int newWidth, int newHeight) {
+    public @NotNull CPUImage resize(@NotNull CPUImage image, int newWidth, int newHeight) {
         if (newWidth == image.width() && newHeight == image.height()) {
             return image; // No resize needed
         }
@@ -55,7 +54,7 @@ public class ImageManipulator extends ImageLoader {
             stbIR.resizeUint8Srgb(image.data(), image.width(), image.height(),
                 image.numChannels(), resizedData, newWidth, newHeight,
                 newWidth * image.numChannels(), STBIR_PixelLayout.RGBA);
-            return new Image(resizedData, newWidth, newHeight, image.numChannels());
+            return new CPUImage(resizedData, newWidth, newHeight, image.numChannels());
         }
     }
 }

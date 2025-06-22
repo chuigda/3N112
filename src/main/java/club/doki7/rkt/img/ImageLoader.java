@@ -25,36 +25,36 @@ public class ImageLoader {
     }
 
     /// @param desiredChannels 0 for auto-detect, otherwise # of image components requested in result
-    public @NotNull Image fromFile(@NotNull RandomAccessFile file, int desiredChannels) {
+    public @NotNull CPUImage fromFile(@NotNull RandomAccessFile file, int desiredChannels) {
         try (Arena arena = Arena.ofConfined()) {
             STBI_IoCallbacks fileCallback = STBIUtil.makeIOCallbacks(arena, file);
             IntPtr pWidth = IntPtr.allocate(arena);
             IntPtr pHeight = IntPtr.allocate(arena);
             IntPtr pNumChannels = IntPtr.allocate(arena);
             BytePtr image = stbI.loadFromCallbacks(fileCallback, MemorySegment.NULL, pWidth, pHeight, pNumChannels, desiredChannels);
-            return new Image(image, pWidth.read(), pHeight.read(), pNumChannels.read());
+            return new CPUImage(image, pWidth.read(), pHeight.read(), pNumChannels.read());
         }
     }
 
-    public @NotNull Image fromPath(@NotNull @NonNls String path, int desiredChannels) {
+    public @NotNull CPUImage fromPath(@NotNull @NonNls String path, int desiredChannels) {
         try (Arena arena = Arena.ofConfined()) {
             BytePtr pPath = BytePtr.allocateString(arena, path);
             IntPtr pWidth = IntPtr.allocate(arena);
             IntPtr pHeight = IntPtr.allocate(arena);
             IntPtr pNumChannels = IntPtr.allocate(arena);
             BytePtr image = stbI.load(pPath, pWidth, pHeight, pNumChannels, desiredChannels);
-            return new Image(image, pWidth.read(), pHeight.read(), pNumChannels.read());
+            return new CPUImage(image, pWidth.read(), pHeight.read(), pNumChannels.read());
         }
     }
 
-    public @NotNull Image fromBytes(byte @NotNull [] data, int desiredChannels) {
+    public @NotNull CPUImage fromBytes(byte @NotNull [] data, int desiredChannels) {
         try (Arena arena = Arena.ofConfined()) {
             IntPtr pWidth = IntPtr.allocate(arena);
             IntPtr pHeight = IntPtr.allocate(arena);
             IntPtr pNumChannels = IntPtr.allocate(arena);
             BytePtr pData = BytePtr.allocate(arena, data);
             BytePtr image = stbI.loadFromMemory(pData, data.length, pWidth, pHeight, pNumChannels, desiredChannels);
-            return new Image(image, pWidth.read(), pHeight.read(), pNumChannels.read());
+            return new CPUImage(image, pWidth.read(), pHeight.read(), pNumChannels.read());
         }
     }
 }
