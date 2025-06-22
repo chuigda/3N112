@@ -1,5 +1,6 @@
 package club.doki7.rkt.vk.resc;
 
+import club.doki7.ffm.annotation.Bitmask;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.rkt.exc.VulkanException;
@@ -29,8 +30,8 @@ public final class Buffer implements AutoCloseable {
             RenderContext cx,
             long size,
             boolean local,
-            @EnumType(VkBufferUsageFlags.class) int usage,
-            @EnumType(VmaAllocationCreateFlags.class) int allocationFlags,
+            @Bitmask(VkBufferUsageFlags.class) int usage,
+            @Bitmask(VmaAllocationCreateFlags.class) int allocationFlags,
             @EnumType(VkSharingMode.class) int sharingMode
     ) throws VulkanException {
         boolean initiallyMapped = (allocationFlags & VmaAllocationCreateFlags.MAPPED) != 0;

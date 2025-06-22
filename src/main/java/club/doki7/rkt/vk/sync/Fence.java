@@ -3,6 +3,7 @@ package club.doki7.rkt.vk.sync;
 import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.vk.IDisposeOnContext;
 import club.doki7.rkt.vk.RenderContext;
+import club.doki7.ffm.annotation.Bitmask;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.annotation.Unsafe;
 import club.doki7.vulkan.bitmask.VkFenceCreateFlags;
@@ -18,7 +19,7 @@ public final class Fence implements AutoCloseable {
 
     public static Fence create(
             RenderContext cx,
-            @EnumType(VkFenceCreateFlags.class) int flags
+            @Bitmask(VkFenceCreateFlags.class) int flags
     ) throws VulkanException {
         return create(cx, flags, false);
     }
@@ -30,7 +31,7 @@ public final class Fence implements AutoCloseable {
     @Unsafe
     public static Fence createLocal(
             RenderContext cx,
-            @EnumType(VkFenceCreateFlags.class) int flags
+            @Bitmask(VkFenceCreateFlags.class) int flags
     ) throws VulkanException {
         return create(cx, flags, true);
     }
@@ -47,7 +48,7 @@ public final class Fence implements AutoCloseable {
 
     private static Fence create(
             RenderContext cx,
-            @EnumType(VkFenceCreateFlags.class) int flags,
+            @Bitmask(VkFenceCreateFlags.class) int flags,
             boolean local
     ) throws VulkanException {
         try (Arena arena = Arena.ofConfined()) {

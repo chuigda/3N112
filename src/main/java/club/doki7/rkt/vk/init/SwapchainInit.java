@@ -6,6 +6,7 @@ import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.Swapchain;
 import club.doki7.ffm.NativeLayout;
+import club.doki7.ffm.annotation.Bitmask;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.vulkan.VkConstants;
@@ -25,7 +26,7 @@ public final class SwapchainInit {
     private VkSurfaceFormatKHR surfaceFormat;
     private @EnumType(VkPresentModeKHR.class) int presentMode;
     private VkExtent2D swapExtent;
-    private @EnumType(VkSurfaceTransformFlagsKHR.class) int currentTransform;
+    private @Bitmask(VkSurfaceTransformFlagsKHR.class) int currentTransform;
 
     private int imageCount;
     private VkSwapchainKHR vkSwapchain;

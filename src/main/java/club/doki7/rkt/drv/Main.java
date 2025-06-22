@@ -1,5 +1,7 @@
 package club.doki7.rkt.drv;
 
+import club.doki7.ffm.library.ILibraryLoader;
+import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.rkt.exc.RenderException;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
@@ -12,21 +14,25 @@ import club.doki7.vulkan.command.VulkanLoader;
 public final class Main {
     static {
         System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tFT%1$tT] [%4$s] %3$s : %5$s%n");
-        VulkanLoader.loadVulkanLibrary();
-        GLFWLoader.loadGLFWLibrary();
         System.loadLibrary("vma");
     }
 
     public static void main(String[] args) {
-        try {
-            applicationStart();
+        try (ISharedLibrary libGLFW = GLFWLoader.loadGLFWLibrary();
+             ISharedLibrary libVulkan = VulkanLoader.loadVulkanLibrary();
+             ISharedLibrary libVMA = ILibraryLoader.platformLoader().loadLibrary("vma")) {
+            applicationStart(libGLFW, libVulkan, libVMA);
         } catch (Throwable e) {
             e.printStackTrace(System.err);
         }
     }
 
-    private static void applicationStart() throws RenderException {
-        GLFW glfw = GLFWLoader.loadGLFW();
+    private static void applicationStart(
+            ISharedLibrary libGLFW,
+            ISharedLibrary libVulkan,
+            ISharedLibrary libVMA
+    ) throws RenderException {
+        GLFW glfw = GLFWLoader.loadGLFW(libGLFW);
         if (glfw.init() != GLFW.TRUE) {
             throw new RuntimeException("GLFW 初始化失败");
         }
@@ -34,7 +40,7 @@ public final class Main {
         RenderConfig config = new RenderConfig();
 
         RenderWindow window = new RenderWindow(glfw, "Example window", 800, 600);
-        RenderContext cx = RenderContext.create(glfw, window.rawWindow, config);
+        RenderContext cx = RenderContext.create(glfw, libVulkan, libVMA, window.rawWindow, config);
         Swapchain swapchain = Swapchain.create(cx, 800, 600);
 
         while (window.tick()) {

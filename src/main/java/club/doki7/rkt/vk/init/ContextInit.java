@@ -1,11 +1,12 @@
 package club.doki7.rkt.vk.init;
 
+import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.rkt.exc.RenderException;
 import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.util.Assertion;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
-import club.doki7.ffm.Loader;
+import club.doki7.ffm.annotation.Bitmask;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.*;
 import club.doki7.glfw.GLFW;
@@ -35,6 +36,8 @@ public final class ContextInit {
     private final Arena prefabArena = Arena.ofAuto();
 
     private final GLFW glfw;
+    private final ISharedLibrary libVulkan;
+    private final ISharedLibrary libVMA;
     private final GLFWwindow window;
 
     private final RenderConfig config;
@@ -67,16 +70,20 @@ public final class ContextInit {
 
     public ContextInit(
             GLFW glfw,
+            ISharedLibrary libVulkan,
+            ISharedLibrary libVMA,
             GLFWwindow window,
             RenderConfig config
     ) {
         this.glfw = glfw;
+        this.libVulkan = libVulkan;
+        this.libVMA = libVMA;
         this.window = window;
         this.config = config;
     }
 
     public RenderContext init() throws RenderException {
-        sCmd = VulkanLoader.loadStaticCommands();
+        sCmd = VulkanLoader.loadStaticCommands(libVulkan);
         eCmd = VulkanLoader.loadEntryCommands(sCmd);
 
         try {
@@ -312,7 +319,7 @@ public final class ContextInit {
 
             for (int i = 0; i < queueFamilyPropertyCount; i++) {
                 VkQueueFamilyProperties queueFamilyProperty = queueFamilyProperties.at(i);
-                @EnumType(VkQueueFlags.class) int queueFlags = queueFamilyProperty.queueFlags();
+                @Bitmask(VkQueueFlags.class) int queueFlags = queueFamilyProperty.queueFlags();
                 logger.fine("正在检查队列 " + i + ", 支持操作: " + VkQueueFlags.explain(queueFlags));
 
                 if ((queueFlags & VkQueueFlags.GRAPHICS) != 0 && graphicsQueueFamilyIndex == -1) {
@@ -338,7 +345,7 @@ public final class ContextInit {
                 }
 
                 if (!config.noTransferQueue) {
-                    @EnumType(VkQueueFlags.class) int prohibitedFlags =
+                    @Bitmask(VkQueueFlags.class) int prohibitedFlags =
                             VkQueueFlags.GRAPHICS | VkQueueFlags.COMPUTE;
                     if ((queueFlags & VkQueueFlags.TRANSFER) != 0
                         && (queueFlags & prohibitedFlags) == 0
@@ -353,7 +360,7 @@ public final class ContextInit {
                 }
 
                 if (!config.noComputeQueue) {
-                    @EnumType(VkQueueFlags.class) int prohibitedFlags = VkQueueFlags.GRAPHICS;
+                    @Bitmask(VkQueueFlags.class) int prohibitedFlags = VkQueueFlags.GRAPHICS;
                     if ((queueFlags & VkQueueFlags.COMPUTE) != 0
                         && (queueFlags & prohibitedFlags) == 0
                         && dedicatedComputeQueueFamilyIndex == -1) {
@@ -487,8 +494,8 @@ public final class ContextInit {
     }
 
     private void createVMA() {
-        vma = new VMA(Loader::loadFunctionOrNull);
-        VMAJavaTraceUtil.enableJavaTraceForVMA();
+        vma = new VMA(libVMA);
+        VMAJavaTraceUtil.enableJavaTraceForVMA(libVMA);
 
         try (var arena = Arena.ofConfined()) {
             var vmaVulkanFunctions = VmaVulkanFunctions.allocate(arena);

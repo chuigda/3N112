@@ -1,5 +1,6 @@
 package club.doki7.rkt.vk.resc;
 
+import club.doki7.ffm.annotation.Bitmask;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.ffm.ptr.IntPtr;
@@ -34,7 +35,7 @@ public final class Image implements AutoCloseable {
 
     public static Image create(
             RenderContext cx,
-            @EnumType(VkImageCreateFlags.class) int flags,
+            @Bitmask(VkImageCreateFlags.class) int flags,
             @EnumType(VkImageType.class) int imageType,
             @EnumType(VkFormat.class) int format,
             int width,
@@ -42,9 +43,9 @@ public final class Image implements AutoCloseable {
             int depth,
             int arrayLayers,
             int mipLevels,
-            @EnumType(VkSampleCountFlags.class) int samples,
-            @EnumType(VkImageUsageFlags.class) int usage,
-            @EnumType(VmaAllocationCreateFlags.class) int allocationFlags,
+            @Bitmask(VkSampleCountFlags.class) int samples,
+            @Bitmask(VkImageUsageFlags.class) int usage,
+            @Bitmask(VmaAllocationCreateFlags.class) int allocationFlags,
             int @Nullable [] sharedQueueFamilyIndices,
             boolean local
     ) throws VulkanException {
@@ -178,7 +179,7 @@ public final class Image implements AutoCloseable {
         public boolean transferSource = true;
         public boolean transferDest = true;
 
-        public @EnumType(VkImageUsageFlags.class) int computeUsageFlags() {
+        public @Bitmask(VkImageUsageFlags.class) int computeUsageFlags() {
             int usage = 0;
             if (sampling) {
                 usage |= VkImageUsageFlags.SAMPLED;
@@ -206,7 +207,7 @@ public final class Image implements AutoCloseable {
             int height,
             @Nullable AttachmentAccess access
     ) {
-        @EnumType(VkImageUsageFlags.class) int usage;
+        @Bitmask(VkImageUsageFlags.class) int usage;
         if (access == null) {
             usage = VkImageUsageFlags.COLOR_ATTACHMENT
                     | VkImageUsageFlags.SAMPLED

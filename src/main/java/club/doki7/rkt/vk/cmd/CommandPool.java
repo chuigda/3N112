@@ -1,5 +1,6 @@
 package club.doki7.rkt.vk.cmd;
 
+import club.doki7.ffm.annotation.Bitmask;
 import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.vk.IDisposeOnContext;
 import club.doki7.rkt.vk.RenderContext;
@@ -22,7 +23,7 @@ public final class CommandPool implements AutoCloseable {
 
     public static CommandPool create(
             RenderContext cx,
-            @EnumType(VkCommandPoolCreateFlags.class) int flags,
+            @Bitmask(VkCommandPoolCreateFlags.class) int flags,
             int queueFamilyIndex
     ) throws VulkanException {
         return create(cx, queueFamilyIndex, flags, false);
@@ -31,7 +32,7 @@ public final class CommandPool implements AutoCloseable {
     @Unsafe
     public static CommandPool createLocal(
             RenderContext cx,
-            @EnumType(VkCommandPoolCreateFlags.class) int flags,
+            @Bitmask(VkCommandPoolCreateFlags.class) int flags,
             int queueFamilyIndex
     ) throws VulkanException {
         return create(cx, queueFamilyIndex, flags, true);
@@ -94,7 +95,7 @@ public final class CommandPool implements AutoCloseable {
     private static CommandPool create(
             RenderContext cx,
             int queueFamilyIndex,
-            @EnumType(VkCommandPoolCreateFlags.class) int flags,
+            @Bitmask(VkCommandPoolCreateFlags.class) int flags,
             boolean local
     ) throws VulkanException {
         try (Arena arena = Arena.ofConfined()) {
@@ -113,7 +114,7 @@ public final class CommandPool implements AutoCloseable {
 
     private CommandPool(
             VkCommandPool handle,
-            @EnumType(VkCommandPoolCreateFlags.class) int flags,
+            @Bitmask(VkCommandPoolCreateFlags.class) int flags,
             RenderContext context,
             boolean local
     ) {
@@ -124,6 +125,6 @@ public final class CommandPool implements AutoCloseable {
         this.cleanable = context.registerCleanup(this, d, local);
     }
 
-    private final @EnumType(VkCommandPoolCreateFlags.class) int flags;
+    private final @Bitmask(VkCommandPoolCreateFlags.class) int flags;
     private final Cleaner.Cleanable cleanable;
 }

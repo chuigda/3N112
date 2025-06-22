@@ -1,6 +1,8 @@
 package club.doki7.rkt.vk;
 
+import club.doki7.ffm.annotation.Bitmask;
 import club.doki7.ffm.annotation.EnumType;
+import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.rkt.exc.RenderException;
 import club.doki7.rkt.exc.VulkanException;
@@ -255,10 +257,12 @@ public final class RenderContext implements AutoCloseable {
 
     public static RenderContext create(
             GLFW glfw,
+            ISharedLibrary libVulkan,
+            ISharedLibrary libVMA,
             GLFWwindow window,
             RenderConfig config
     ) throws RenderException {
-        return new ContextInit(glfw, window, config).init();
+        return new ContextInit(glfw, libVulkan, libVMA, window, config).init();
     }
 
     @Override
@@ -318,7 +322,7 @@ public final class RenderContext implements AutoCloseable {
             for (int i = 0; i < info.waitSemaphores.size(); i++) {
                 pWaitSemaphores.write(i, info.waitSemaphores.get(i).handle);
             }
-            @EnumType(VkPipelineStageFlags.class) IntPtr pWaitDstStageMask =
+            @Bitmask(VkPipelineStageFlags.class) IntPtr pWaitDstStageMask =
                     IntPtr.allocate(arena, info.waitDstStageMasks.size());
             for (int i = 0; i < info.waitDstStageMasks.size(); i++) {
                 pWaitDstStageMask.write(i, info.waitDstStageMasks.get(i));
