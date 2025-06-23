@@ -11,7 +11,7 @@ public final class CPUImage implements AutoCloseable {
     public final int height;
     public final int numChannels;
 
-    CPUImage(BytePtr data, int width, int height, int numChannels, CPUImageUtil loader) {
+    CPUImage(BytePtr data, int width, int height, int numChannels, CPUImageUtil u) {
         this.data = data.reinterpret((long) width * height * numChannels);
         this.width = width;
         this.height = height;
@@ -19,7 +19,7 @@ public final class CPUImage implements AutoCloseable {
 
         this.cleanable = CPUImageUtil.cleaner.register(
                 this,
-                () -> loader.stbI.imageFree(data.segment())
+                () -> u.stbI.imageFree(data.segment())
         );
     }
 
