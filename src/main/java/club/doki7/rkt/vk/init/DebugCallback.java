@@ -1,6 +1,6 @@
 package club.doki7.rkt.vk.init;
 
-import club.doki7.ffm.annotation.EnumType;
+import club.doki7.ffm.annotation.Bitmask;
 import club.doki7.ffm.annotation.NativeType;
 import club.doki7.ffm.annotation.Pointer;
 import club.doki7.ffm.ptr.BytePtr;
@@ -20,8 +20,8 @@ import java.util.logging.Logger;
 
 class DebugCallback {
     private static @NativeType("VkBool32") int debugCallback(
-            @EnumType(VkDebugUtilsMessageSeverityFlagsEXT.class) int messageSeverity,
-            @EnumType(VkDebugUtilsMessageTypeFlagsEXT.class) int ignoredMessageType,
+            @Bitmask(VkDebugUtilsMessageSeverityFlagsEXT.class) int messageSeverity,
+            @Bitmask(VkDebugUtilsMessageTypeFlagsEXT.class) int ignoredMessageType,
             @Pointer(comment="const VkDebugUtilsMessengerCallbackDataEXT*") MemorySegment pCallbackData,
             @Pointer(comment="void*") MemorySegment ignoredPUserData
     ) {
@@ -54,7 +54,7 @@ class DebugCallback {
         return VkConstants.FALSE;
     }
 
-    private static @NotNull Consumer<String> getSeverityLoggingFunction(@EnumType(VkDebugUtilsMessageSeverityFlagsEXT.class) int messageSeverity) {
+    private static @NotNull Consumer<String> getSeverityLoggingFunction(@Bitmask(VkDebugUtilsMessageSeverityFlagsEXT.class) int messageSeverity) {
         Consumer<String> action;
         if (messageSeverity >= VkDebugUtilsMessageSeverityFlagsEXT.ERROR) {
             action = logger::severe;
