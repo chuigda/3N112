@@ -97,7 +97,22 @@ public final class Buffer implements AutoCloseable {
         public boolean shared;
 
         public Options build() {
+            if (coherent && !mapped) {
+                throw new IllegalStateException("无效的参数组合：若指定了 coherent，则必须指定 mapped");
+            }
+
+            if (usage.isEmpty()) {
+                throw new IllegalStateException("使用的缓冲区类型不能为空");
+            }
+
             return new Options(usage, mapped, coherent, shared);
+        }
+
+        public OptionsInit() {
+            this.usage = Collections.emptySet();
+            this.mapped = false;
+            this.coherent = false;
+            this.shared = false;
         }
 
         public static OptionsInit vertexBufferPreset() {
@@ -189,12 +204,13 @@ public final class Buffer implements AutoCloseable {
     ) throws VulkanException {
         try (Arena arena = Arena.ofConfined()) {
             VkMappedMemoryRange.Ptr ranges = VkMappedMemoryRange.allocate(arena, buffers.size());
+            long index = 0;
             for (Buffer buffer : buffers) {
                 if (buffer.mappedMemoryRange == null) {
-                    throw new IllegalArgumentException(
-                            "缓冲 " + buffer.handle + " 未被映射或者不需要失效"
-                    );
+                    throw new IllegalStateException("缓冲 " + buffer.handle + " 未被映射或者不需要失效");
                 }
+                ranges.write(index, buffer.mappedMemoryRange);
+                index += 1;
             }
 
             @EnumType(VkResult.class) int result = cx.dCmd.invalidateMappedMemoryRanges(
@@ -214,12 +230,13 @@ public final class Buffer implements AutoCloseable {
     ) throws VulkanException {
         try (Arena arena = Arena.ofConfined()) {
             VkMappedMemoryRange.Ptr ranges = VkMappedMemoryRange.allocate(arena, buffers.size());
+            long index = 0;
             for (Buffer buffer : buffers) {
                 if (buffer.mappedMemoryRange == null) {
-                    throw new IllegalArgumentException(
-                            "缓冲 " + buffer.handle + " 未被映射或者不需要刷新"
-                    );
+                    throw new IllegalStateException("缓冲 " + buffer.handle + " 未被映射或者不需要刷新");
                 }
+                ranges.write(index, buffer.mappedMemoryRange);
+                index += 1;
             }
 
             @EnumType(VkResult.class) int result = cx.dCmd.flushMappedMemoryRanges(
