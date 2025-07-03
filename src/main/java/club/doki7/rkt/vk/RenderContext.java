@@ -52,7 +52,7 @@ public final class RenderContext implements AutoCloseable {
 
     public final VkInstance instance;
     public final @Nullable VkDebugUtilsMessengerEXT debugMessenger;
-    public final VkSurfaceKHR surface;
+    public final @Nullable VkSurfaceKHR surface;
 
     public final VkDevice device;
     public final VmaAllocator vmaAllocator;
@@ -75,11 +75,11 @@ public final class RenderContext implements AutoCloseable {
 
             VkInstance instance,
             @Nullable VkDebugUtilsMessengerEXT debugMessenger,
-            VkSurfaceKHR surface,
+            @Nullable VkSurfaceKHR surface,
 
             VkDevice device,
             VkQueue graphicsQueue,
-            VkQueue presentQueue,
+            @Nullable VkQueue presentQueue,
             @Nullable VkQueue transferQueue,
             @Nullable VkQueue computeQueue,
 
@@ -188,7 +188,7 @@ public final class RenderContext implements AutoCloseable {
     public void waitDeviceIdle() {
         try {
             graphicsQueueLock.lock();
-            if (graphicsQueueLock != presentQueueLock) {
+            if (presentQueueLock != null && graphicsQueueLock != presentQueueLock) {
                 presentQueueLock.lock();
             }
             if (transferQueueLock != null) {
@@ -201,7 +201,7 @@ public final class RenderContext implements AutoCloseable {
             dCmd.deviceWaitIdle(device);
         } finally {
             graphicsQueueLock.unlock();
-            if (graphicsQueueLock != presentQueueLock) {
+            if (presentQueueLock != null && graphicsQueueLock != presentQueueLock) {
                 presentQueueLock.unlock();
             }
             if (transferQueueLock != null) {
@@ -256,13 +256,21 @@ public final class RenderContext implements AutoCloseable {
     }
 
     public static RenderContext create(
-            GLFW glfw,
             ISharedLibrary libVulkan,
             ISharedLibrary libVMA,
+            GLFW glfw,
             GLFWwindow window,
             RenderConfig config
     ) throws RenderException {
-        return new ContextInit(glfw, libVulkan, libVMA, window, config).init();
+        return new ContextInit(libVulkan, libVMA, glfw, window, config).init();
+    }
+
+    public static RenderContext createHeadless(
+            ISharedLibrary libVulkan,
+            ISharedLibrary libVMA,
+            RenderConfig config
+    ) throws RenderException {
+        return new ContextInit(libVulkan, libVMA, null, null, config).init();
     }
 
     @Override
@@ -294,7 +302,9 @@ public final class RenderContext implements AutoCloseable {
 
         dCmd.destroyDevice(device, null);
 
-        iCmd.destroySurfaceKHR(instance, surface, null);
+        if (surface != null) {
+            iCmd.destroySurfaceKHR(instance, surface, null);
+        }
 
         if (debugMessenger != null) {
             iCmd.destroyDebugUtilsMessengerEXT(instance, debugMessenger, null);
@@ -365,11 +375,11 @@ public final class RenderContext implements AutoCloseable {
     }
 
     final VkQueue graphicsQueue;
-    final VkQueue presentQueue;
+    final @Nullable VkQueue presentQueue;
     final @Nullable VkQueue transferQueue;
     final @Nullable VkQueue computeQueue;
     final Lock graphicsQueueLock;
-    final Lock presentQueueLock;
+    final @Nullable Lock presentQueueLock;
     final @Nullable Lock transferQueueLock;
     final @Nullable Lock computeQueueLock;
 

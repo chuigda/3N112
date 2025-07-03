@@ -27,16 +27,17 @@ import club.doki7.vulkan.handle.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.util.*;
 import java.util.logging.Logger;
 
 public final class ContextInit {
     private final Arena prefabArena = Arena.ofAuto();
 
-    private final GLFW glfw;
+    @Nullable private final GLFW glfw;
+    @Nullable private final GLFWwindow window;
     private final ISharedLibrary libVulkan;
     private final ISharedLibrary libVMA;
-    private final GLFWwindow window;
 
     private final RenderConfig config;
 
@@ -48,7 +49,7 @@ public final class ContextInit {
     private VkInstance instance;
     private VkInstanceCommands iCmd;
     private @Nullable VkDebugUtilsMessengerEXT debugMessenger;
-    private VkSurfaceKHR surface;
+    private @Nullable VkSurfaceKHR surface;
 
     private VkPhysicalDevice physicalDevice;
     private int graphicsQueueFamilyIndex;
@@ -59,7 +60,7 @@ public final class ContextInit {
     private VkDevice device;
     private VkDeviceCommands dCmd;
     private VkQueue graphicsQueue;
-    private VkQueue presentQueue;
+    private @Nullable VkQueue presentQueue;
     private @Nullable VkQueue dedicatedTransferQueue;
     private @Nullable VkQueue dedicatedComputeQueue;
 
@@ -67,10 +68,10 @@ public final class ContextInit {
     private VmaAllocator vmaAllocator;
 
     public ContextInit(
-            GLFW glfw,
             ISharedLibrary libVulkan,
             ISharedLibrary libVMA,
-            GLFWwindow window,
+            @Nullable GLFW glfw,
+            @Nullable GLFWwindow window,
             RenderConfig config
     ) {
         this.glfw = glfw;
@@ -149,43 +150,37 @@ public final class ContextInit {
                     .engineVersion(new Version(0x07, 0x21, 0x0D, 0x00).encode())
                     .apiVersion(config.vulkanVersion.encode());
 
-            IntPtr pGLFWExtensionCount = IntPtr.allocate(arena);
-            PointerPtr glfwExtensions = glfw.getRequiredInstanceExtensions(pGLFWExtensionCount);
-            if (glfwExtensions == null) {
-                throw new RenderException("无法获取 GLFW 所需的 Vulkan 实例扩展");
-            }
-            int glfwExtensionCount = pGLFWExtensionCount.read();
-            glfwExtensions = glfwExtensions.reinterpret(glfwExtensionCount);
+            Set<String> extensions = new HashSet<>(alwaysRequestInstanceExtensions);
+            extensions.addAll(config.additionalInstanceExtensions);
+            if (glfw != null) {
+                IntPtr pGLFWExtensionCount = IntPtr.allocate(arena);
+                PointerPtr glfwExtensions = glfw.getRequiredInstanceExtensions(pGLFWExtensionCount);
+                if (glfwExtensions == null) {
+                    throw new RenderException("无法获取 GLFW 所需的 Vulkan 实例扩展");
+                }
+                int glfwExtensionCount = pGLFWExtensionCount.read();
+                glfwExtensions = glfwExtensions.reinterpret(glfwExtensionCount);
 
-            List<String> userExtensions = new ArrayList<>(alwaysRequestInstanceExtensions);
+                for (MemorySegment glfwExtension : glfwExtensions) {
+                    extensions.add(glfwExtension.reinterpret(Long.MAX_VALUE).getString(0));
+                }
+            }
+
             if (enableValidationLayers) {
-                userExtensions.add(VkConstants.EXT_DEBUG_UTILS_EXTENSION_NAME);
-            }
-            userExtensions.addAll(config.additionalInstanceExtensions);
-
-            PointerPtr ppInstanceExtensions =
-                    PointerPtr.allocate(arena, glfwExtensionCount + userExtensions.size());
-            for (int i = 0; i < glfwExtensionCount; i++) {
-                ppInstanceExtensions.write(i, glfwExtensions.read(i));
-            }
-            for (int i = 0; i < userExtensions.size(); i++) {
-                ppInstanceExtensions.write(
-                        glfwExtensionCount + i,
-                        BytePtr.allocateString(arena, userExtensions.get(i))
-                );
+                extensions.add(VkConstants.EXT_DEBUG_UTILS_EXTENSION_NAME);
             }
 
             VkInstanceCreateInfo instanceCreateInfo = VkInstanceCreateInfo.allocate(arena)
                     .pApplicationInfo(appInfo)
-                    .enabledExtensionCount((int) ppInstanceExtensions.size())
-                    .ppEnabledExtensionNames(ppInstanceExtensions);
+                    .enabledExtensionCount(extensions.size())
+                    .ppEnabledExtensionNames(PointerPtr.allocateStrings(arena, extensions));
 
             if (enableValidationLayers) {
-                PointerPtr ppEnabledLayerNames = PointerPtr.allocateV(
-                        arena,
-                        BytePtr.allocateString(arena, VALIDATION_LAYER_NAME)
-                );
-                instanceCreateInfo.enabledLayerCount(1).ppEnabledLayerNames(ppEnabledLayerNames);
+                PointerPtr ppEnabledLayerNames =
+                        PointerPtr.allocateStrings(arena, VALIDATION_LAYER_NAME);
+                instanceCreateInfo
+                        .enabledLayerCount(1)
+                        .ppEnabledLayerNames(ppEnabledLayerNames);
 
                 VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo =
                         VkDebugUtilsMessengerCreateInfoEXT.allocate(arena);
@@ -233,13 +228,17 @@ public final class ContextInit {
     }
 
     private void createSurface() throws RenderException {
-        try (Arena arena = Arena.ofConfined()) {
-            VkSurfaceKHR.Ptr pSurface = VkSurfaceKHR.Ptr.allocate(arena);
-            @EnumType(VkResult.class) int result = glfw.createWindowSurface(instance, window, null, pSurface);
-            if (result != VkResult.SUCCESS) {
-                throw new VulkanException(result, "无法创建 Vulkan 窗口表面");
+        if (glfw != null) {
+            try (Arena arena = Arena.ofConfined()) {
+                VkSurfaceKHR.Ptr pSurface = VkSurfaceKHR.Ptr.allocate(arena);
+                @EnumType(VkResult.class) int result = glfw.createWindowSurface(instance, window, null, pSurface);
+                if (result != VkResult.SUCCESS) {
+                    throw new VulkanException(result, "无法创建 Vulkan 窗口表面");
+                }
+                surface = Objects.requireNonNull(pSurface.read());
             }
-            surface = Objects.requireNonNull(pSurface.read());
+        } else {
+            surface = null;
         }
     }
 
@@ -314,6 +313,7 @@ public final class ContextInit {
                     pQueueFamilyPropertyCount,
                     queueFamilyProperties
             );
+            IntPtr pSupportsPresent = IntPtr.allocate(arena);
 
             for (int i = 0; i < queueFamilyPropertyCount; i++) {
                 VkQueueFamilyProperties queueFamilyProperty = queueFamilyProperties.at(i);
@@ -329,17 +329,18 @@ public final class ContextInit {
                     graphicsQueueFamilyIndex = i;
                 }
 
-                IntPtr pSupportsPresent = IntPtr.allocate(arena);
-                iCmd.getPhysicalDeviceSurfaceSupportKHR(
-                        physicalDevice,
-                        1,
-                        surface,
-                        pSupportsPresent
-                );
-                int supportsPresent = pSupportsPresent.read();
-                if (supportsPresent == VkConstants.TRUE && presentQueueFamilyIndex == -1) {
-                    logger.info("找到支持窗口呈现的队列族: " + i);
-                    presentQueueFamilyIndex = i;
+                if (glfw != null) {
+                    iCmd.getPhysicalDeviceSurfaceSupportKHR(
+                            physicalDevice,
+                            1,
+                            Objects.requireNonNull(surface),
+                            pSupportsPresent
+                    );
+                    int supportsPresent = pSupportsPresent.read();
+                    if (supportsPresent == VkConstants.TRUE && presentQueueFamilyIndex == -1) {
+                        logger.info("找到支持窗口呈现的队列族: " + i);
+                        presentQueueFamilyIndex = i;
+                    }
                 }
 
                 if (!config.noTransferQueue) {
@@ -375,7 +376,7 @@ public final class ContextInit {
             if (graphicsQueueFamilyIndex == -1) {
                 throw new RenderException("未找到支持图形渲染的 Vulkan 队列族");
             }
-            if (presentQueueFamilyIndex == -1) {
+            if (glfw != null && presentQueueFamilyIndex == -1) {
                 throw new RenderException("未找到支持窗口呈现的 Vulkan 队列族");
             }
             if (dedicatedTransferQueueFamilyIndex == -1) {
@@ -397,7 +398,10 @@ public final class ContextInit {
 
             FloatPtr pQueuePriorities = FloatPtr.allocateV(arena, 1.0f);
 
-            int queueCreateInfoCount = graphicsQueueFamilyIndex != presentQueueFamilyIndex ? 2 : 1;
+            int queueCreateInfoCount = 1;
+            if (presentQueueFamilyIndex != -1 && graphicsQueueFamilyIndex != presentQueueFamilyIndex) {
+                queueCreateInfoCount++;
+            }
             if (dedicatedTransferQueueFamilyIndex != -1) {
                 queueCreateInfoCount++;
             }
@@ -412,7 +416,7 @@ public final class ContextInit {
                     .queueFamilyIndex(graphicsQueueFamilyIndex)
                     .pQueuePriorities(pQueuePriorities);
             nthCreateInfo += 1;
-            if (graphicsQueueFamilyIndex != presentQueueFamilyIndex) {
+            if (presentQueueFamilyIndex != -1 && graphicsQueueFamilyIndex != presentQueueFamilyIndex) {
                 queueCreateInfos.at(nthCreateInfo)
                         .queueCount(1)
                         .queueFamilyIndex(presentQueueFamilyIndex)
@@ -434,6 +438,9 @@ public final class ContextInit {
             }
 
             Set<String> extensions = new HashSet<>(alwaysRequestDeviceExtensions);
+            if (presentQueueFamilyIndex != -1) {
+                extensions.add(VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME);
+            }
             if (config.enableHostCopy) {
                 extensions.addAll(hostCopyDeviceExtensions);
             }
@@ -468,8 +475,12 @@ public final class ContextInit {
             VkQueue.Ptr pQueue = VkQueue.Ptr.allocate(arena);
             dCmd.getDeviceQueue(device, graphicsQueueFamilyIndex, 0, pQueue);
             graphicsQueue = Objects.requireNonNull(pQueue.read());
-            dCmd.getDeviceQueue(device, presentQueueFamilyIndex, 0, pQueue);
-            presentQueue = Objects.requireNonNull(pQueue.read());
+            if (presentQueueFamilyIndex != -1) {
+                dCmd.getDeviceQueue(device, presentQueueFamilyIndex, 0, pQueue);
+                presentQueue = Objects.requireNonNull(pQueue.read());
+            } else {
+                presentQueue = null;
+            }
 
             if (dedicatedTransferQueueFamilyIndex != -1) {
                 dCmd.getDeviceQueue(device, dedicatedTransferQueueFamilyIndex, 0, pQueue);
@@ -583,8 +594,6 @@ public final class ContextInit {
             VkConstants.KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
     );
     private static final List<String> alwaysRequestDeviceExtensions = List.of(
-            // swapchain
-            VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME,
             // dynamic rendering feature
             VkConstants.KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
             // push descriptor feature

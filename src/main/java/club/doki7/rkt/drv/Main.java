@@ -14,7 +14,6 @@ import club.doki7.vulkan.command.VulkanLoader;
 public final class Main {
     static {
         System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tFT%1$tT] [%4$s] %3$s : %5$s%n");
-        System.loadLibrary("vma");
     }
 
     public static void main(String[] args) {
@@ -40,7 +39,7 @@ public final class Main {
         RenderConfig config = new RenderConfig();
 
         RenderWindow window = new RenderWindow(glfw, "Example window", 800, 600);
-        RenderContext cx = RenderContext.create(glfw, libVulkan, libVMA, window.rawWindow, config);
+        RenderContext cx = RenderContext.create(libVulkan, libVMA, glfw, window.rawWindow, config);
         Swapchain swapchain = Swapchain.create(cx, 800, 600);
 
         while (window.tick()) {

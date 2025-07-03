@@ -34,6 +34,10 @@ public final class SwapchainInit {
     private VkImageView.Ptr pSwapchainImageViews;
 
     public SwapchainInit(RenderContext cx) {
+        if (cx.surface == null) {
+            throw new IllegalArgumentException("渲染上下文被设置为无头模式");
+        }
+
         this.cx = cx;
     }
 
@@ -191,7 +195,7 @@ public final class SwapchainInit {
         VkSurfaceCapabilitiesKHR surfaceCapabilities = VkSurfaceCapabilitiesKHR.allocate(arena);
         @EnumType(VkResult.class) int result = cx.iCmd.getPhysicalDeviceSurfaceCapabilitiesKHR(
                 cx.physicalDevice,
-                cx.surface,
+                Objects.requireNonNull(cx.surface),
                 surfaceCapabilities
         );
         if (result != VkResult.SUCCESS) {
