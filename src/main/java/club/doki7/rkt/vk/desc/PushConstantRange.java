@@ -7,18 +7,17 @@ import club.doki7.vulkan.bitmask.VkShaderStageFlags;
 import java.util.Collections;
 import java.util.Set;
 
-public final class DescriptorSetLayoutBinding {
-    public final DescriptorKind kind;
+public final class PushConstantRange {
+    public final int size;
     public final Set<ShaderStage> stages;
 
-    public DescriptorSetLayoutBinding(DescriptorKind kind, Set<ShaderStage> stages) {
-        this.kind = kind;
+    public PushConstantRange(int size, Set<ShaderStage> stages) {
+        this.size = size;
         this.stages = Collections.unmodifiableSet(stages);
     }
 
-    public DescriptorSetLayoutBinding(DescriptorKind kind, ShaderStage... stages) {
-        this.kind = kind;
-        this.stages = Set.of(stages);
+    public PushConstantRange(int size, ShaderStage... stages) {
+        this(size, Set.of(stages));
     }
 
     public @Bitmask(VkShaderStageFlags.class) int shaderStageFlags() {
