@@ -12,14 +12,14 @@ public final class DescriptorSet {
     public final List<IDescriptor> descriptors;
 
     public static DescriptorSet create(
-            RenderContext context,
+            RenderContext cx,
             DescriptorSetLayout compatibleLayout,
             List<IDescriptor> descriptors
     ) {
         assert checkLayoutCompatibility(descriptors, compatibleLayout);
 
         VkWriteDescriptorSet.Ptr descriptorSetWrites = VkWriteDescriptorSet.allocate(
-                context.prefabArena,
+                cx.prefabArena,
                 descriptors.size()
         );
         for (int i = 0; i < descriptors.size(); i++) {

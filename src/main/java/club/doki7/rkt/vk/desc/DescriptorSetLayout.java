@@ -21,7 +21,7 @@ public final class DescriptorSetLayout implements AutoCloseable {
     public final List<DescriptorSetLayoutBinding> bindings;
 
     public static DescriptorSetLayout create(
-            RenderContext context,
+            RenderContext cx,
             List<DescriptorSetLayoutBinding> bindings
     ) throws VulkanException {
         try (Arena arena = Arena.ofConfined()) {
@@ -39,8 +39,8 @@ public final class DescriptorSetLayout implements AutoCloseable {
                     .bindingCount(bindings.size())
                     .pBindings(nBindings);
             VkDescriptorSetLayout.Ptr pLayout = VkDescriptorSetLayout.Ptr.allocate(arena);
-            @EnumType(VkResult.class) int result = context.dCmd.createDescriptorSetLayout(
-                    context.device,
+            @EnumType(VkResult.class) int result = cx.dCmd.createDescriptorSetLayout(
+                    cx.device,
                     createInfo,
                     null,
                     pLayout
@@ -50,7 +50,7 @@ public final class DescriptorSetLayout implements AutoCloseable {
             }
 
             VkDescriptorSetLayout handle = Objects.requireNonNull(pLayout.read());
-            return new DescriptorSetLayout(handle, Collections.unmodifiableList(bindings), context);
+            return new DescriptorSetLayout(handle, Collections.unmodifiableList(bindings), cx);
         }
     }
 

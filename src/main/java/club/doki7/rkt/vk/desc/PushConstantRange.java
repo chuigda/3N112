@@ -17,7 +17,8 @@ public final class PushConstantRange {
     }
 
     public PushConstantRange(int size, ShaderStage... stages) {
-        this(size, Set.of(stages));
+        this.size = size;
+        this.stages = Set.of(stages);
     }
 
     public @Bitmask(VkShaderStageFlags.class) int shaderStageFlags() {

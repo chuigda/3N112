@@ -10,11 +10,11 @@ public final class ShaderStorageBufferObject implements IDescriptor {
     public final Buffer buffer;
     public final VkDescriptorBufferInfo bufferInfo;
 
-    public static ShaderStorageBufferObject create(RenderContext context, Buffer buffer) {
+    public static ShaderStorageBufferObject create(RenderContext cx, Buffer buffer) {
         if (!buffer.options.usage.contains(Buffer.Usage.STORAGE_BUFFER)) {
             throw new IllegalArgumentException("Buffer must be created with usage STORAGE_BUFFER");
         }
-        VkDescriptorBufferInfo bufferInfo = VkDescriptorBufferInfo.allocate(context.prefabArena)
+        VkDescriptorBufferInfo bufferInfo = VkDescriptorBufferInfo.allocate(cx.prefabArena)
                 .buffer(buffer.handle)
                 .offset(0)
                 .range(buffer.size);
