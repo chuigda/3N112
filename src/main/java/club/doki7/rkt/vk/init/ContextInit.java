@@ -27,9 +27,7 @@ import club.doki7.vulkan.handle.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.logging.Logger;
 
 public final class ContextInit {
@@ -435,16 +433,12 @@ public final class ContextInit {
                         .pQueuePriorities(pQueuePriorities);
             }
 
-            List<String> extensions = new ArrayList<>(alwaysRequestDeviceExtensions);
+            Set<String> extensions = new HashSet<>(alwaysRequestDeviceExtensions);
             if (config.enableHostCopy) {
                 extensions.addAll(hostCopyDeviceExtensions);
             }
             extensions.addAll(config.additionalDeviceExtensions);
-
-            PointerPtr ppDeviceExtensions = PointerPtr.allocate(arena, extensions.size());
-            for (int i = 0; i < extensions.size(); i++) {
-                ppDeviceExtensions.write(i, BytePtr.allocateString(arena, extensions.get(i)));
-            }
+            PointerPtr ppDeviceExtensions = PointerPtr.allocateStrings(arena, extensions);
 
             VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures =
                     VkPhysicalDeviceDynamicRenderingFeatures.allocate(arena)
@@ -458,8 +452,7 @@ public final class ContextInit {
                     .ppEnabledExtensionNames(ppDeviceExtensions)
                     .pNext(dynamicRenderingFeatures);
             if (enableValidationLayers) {
-                PointerPtr ppEnabledLayerNames = PointerPtr.allocate(arena);
-                ppEnabledLayerNames.write(BytePtr.allocateString(arena, VALIDATION_LAYER_NAME));
+                PointerPtr ppEnabledLayerNames = PointerPtr.allocateStrings(arena, VALIDATION_LAYER_NAME);
                 deviceCreateInfo.enabledLayerCount(1).ppEnabledLayerNames(ppEnabledLayerNames);
             }
 
@@ -579,7 +572,7 @@ public final class ContextInit {
                 VkDebugUtilsMessageTypeFlagsEXT.GENERAL
                 | VkDebugUtilsMessageTypeFlagsEXT.VALIDATION
                 | VkDebugUtilsMessageTypeFlagsEXT.PERFORMANCE
-        ).pfnUserCallback(DebugCallback.UPCALL_debugCallback);
+        ).pfnUserCallback(DebugCallback::debugCallback);
     }
 
     private static final String VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
@@ -594,6 +587,8 @@ public final class ContextInit {
             VkConstants.KHR_SWAPCHAIN_EXTENSION_NAME,
             // dynamic rendering feature
             VkConstants.KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+            // push descriptor feature
+            VkConstants.KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
             // dependencies of KHR_dynamic_rendering
             VkConstants.KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
             VkConstants.KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,

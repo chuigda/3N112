@@ -5,7 +5,6 @@ import club.doki7.ffm.annotation.NativeType;
 import club.doki7.ffm.annotation.Pointer;
 import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.vulkan.VkConstants;
-import club.doki7.vulkan.VkFunctionTypes;
 import club.doki7.vulkan.bitmask.VkDebugUtilsMessageSeverityFlagsEXT;
 import club.doki7.vulkan.bitmask.VkDebugUtilsMessageTypeFlagsEXT;
 import club.doki7.vulkan.datatype.VkDebugUtilsMessengerCallbackDataEXT;
@@ -13,13 +12,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.*;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 class DebugCallback {
-    private static @NativeType("VkBool32") int debugCallback(
+    public static @NativeType("VkBool32") int debugCallback(
             @EnumType(VkDebugUtilsMessageSeverityFlagsEXT.class) int messageSeverity,
             @EnumType(VkDebugUtilsMessageTypeFlagsEXT.class) int ignoredMessageType,
             @Pointer(comment="const VkDebugUtilsMessengerCallbackDataEXT*") MemorySegment pCallbackData,
@@ -66,24 +63,6 @@ class DebugCallback {
             action = logger::fine;
         }
         return action;
-    }
-
-    public static final MemorySegment UPCALL_debugCallback;
-    static {
-        try {
-            MethodHandle handle = MethodHandles.lookup().findStatic(
-                    DebugCallback.class,
-                    "debugCallback",
-                    VkFunctionTypes.PFN_vkDebugUtilsMessengerCallbackEXT.toMethodType()
-            );
-            UPCALL_debugCallback = Linker.nativeLinker().upcallStub(
-                    handle,
-                    VkFunctionTypes.PFN_vkDebugUtilsMessengerCallbackEXT,
-                    Arena.global()
-            );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private static final Logger logger = Logger.getLogger("vulkan.validation-layer");

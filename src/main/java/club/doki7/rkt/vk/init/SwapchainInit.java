@@ -228,7 +228,7 @@ public final class SwapchainInit {
             }
 
             int presentModeCount = pCount.read();
-            IntPtr presentModes = IntPtr.allocate(arena, presentModeCount);
+            @EnumType(VkPresentModeKHR.class) IntPtr presentModes = IntPtr.allocate(arena, presentModeCount);
             result = cx.iCmd.getPhysicalDeviceSurfacePresentModesKHR(
                     cx.physicalDevice,
                     cx.surface,
