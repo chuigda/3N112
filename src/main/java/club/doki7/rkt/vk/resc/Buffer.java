@@ -2,7 +2,6 @@ package club.doki7.rkt.vk.resc;
 
 import club.doki7.ffm.annotation.Bitmask;
 import club.doki7.ffm.annotation.EnumType;
-import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.vk.IDisposeOnContext;
 import club.doki7.rkt.vk.RenderContext;
@@ -22,6 +21,7 @@ import club.doki7.vulkan.handle.VkDeviceMemory;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.lang.ref.Cleaner;
 import java.util.Collection;
 import java.util.Collections;
@@ -173,7 +173,7 @@ public final class Buffer implements AutoCloseable {
     public final Options options;
 
     public final VkDeviceMemory deviceMemory;
-    public final @Nullable BytePtr mapped;
+    public final MemorySegment mapped;
 
     public void invalidate(RenderContext cx) throws VulkanException {
         if (mappedMemoryRange == null) {
@@ -291,9 +291,9 @@ public final class Buffer implements AutoCloseable {
             VkBuffer handle = pBuffer.read();
             VmaAllocation allocation = pAllocation.read();
             VkDeviceMemory deviceMemory = allocationInfo.deviceMemory();
-            @Nullable BytePtr mapped = options.mapped
-                    ? new BytePtr(allocationInfo.pMappedData().reinterpret(size))
-                    : null;
+            MemorySegment mapped = options.mapped
+                    ? allocationInfo.pMappedData().reinterpret(size)
+                    : MemorySegment.NULL;
             return new Buffer(handle, size, options, deviceMemory, mapped, allocation, cx, local);
         }
     }
@@ -308,7 +308,7 @@ public final class Buffer implements AutoCloseable {
             long size,
             Options options,
             VkDeviceMemory deviceMemory,
-            @Nullable BytePtr mapped,
+            MemorySegment mapped,
 
             VmaAllocation allocation,
             RenderContext context,

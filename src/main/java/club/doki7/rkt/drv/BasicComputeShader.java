@@ -4,6 +4,7 @@ import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.library.ILibraryLoader;
 import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.ffm.ptr.BytePtr;
+import club.doki7.ffm.ptr.FloatPtr;
 import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.rkt.exc.RenderException;
 import club.doki7.rkt.shaderc.ShaderCompiler;
@@ -35,7 +36,6 @@ import club.doki7.vulkan.enumtype.VkPipelineBindPoint;
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -137,6 +137,11 @@ final class Application implements AutoCloseable {
         Buffer outputBuffer =
                 Buffer.create(cx, outputLayerSize * Float.BYTES, true, optionsMappedSSBO);
 
+        FloatPtr pHiddenLayerOutputMapped =
+                Objects.requireNonNull(FloatPtr.checked(hiddenLayerOutputBuffer.mapped));
+        FloatPtr pOutputMapped =
+                Objects.requireNonNull(FloatPtr.checked(outputBuffer.mapped));
+
         Buffer hiddenLayerWeightsBuffer = Buffer.create(
                 cx,
                 perceptronWeights[0].length * Float.BYTES,
@@ -162,18 +167,10 @@ final class Application implements AutoCloseable {
                 optionsMappedSSBO
         );
 
-        Objects.requireNonNull(hiddenLayerWeightsBuffer.mapped)
-                .segment()
-                .copyFrom(MemorySegment.ofArray(perceptronWeights[0]));
-        Objects.requireNonNull(hiddenLayerBiasBuffer.mapped)
-                .segment()
-                .copyFrom(MemorySegment.ofArray(perceptronBias[0]));
-        Objects.requireNonNull(outputLayerWeightsBuffer.mapped)
-                .segment()
-                .copyFrom(MemorySegment.ofArray(perceptronWeights[1]));
-        Objects.requireNonNull(outputLayerBiasBuffer.mapped)
-                .segment()
-                .copyFrom(MemorySegment.ofArray(perceptronBias[1]));
+        hiddenLayerWeightsBuffer.mapped.copyFrom(MemorySegment.ofArray(perceptronWeights[0]));
+        hiddenLayerBiasBuffer.mapped.copyFrom(MemorySegment.ofArray(perceptronBias[0]));
+        outputLayerWeightsBuffer.mapped.copyFrom(MemorySegment.ofArray(perceptronWeights[1]));
+        outputLayerBiasBuffer.mapped.copyFrom(MemorySegment.ofArray(perceptronBias[1]));
         // endregion
 
         // region 5. descriptor set creation
@@ -296,9 +293,7 @@ final class Application implements AutoCloseable {
 
         for (int i = 0; i < 4; i++) {
             // copy input values to input buffer
-            Objects.requireNonNull(inputBuffer.mapped)
-                    .segment()
-                    .copyFrom(MemorySegment.ofArray(inputValues[i]));
+            inputBuffer.mapped.copyFrom(MemorySegment.ofArray(inputValues[i]));
 
             // submit command buffer
             if (cx.hasComputeQueue()) {
@@ -311,17 +306,11 @@ final class Application implements AutoCloseable {
             cx.waitForFence(fence);
             cx.resetFence(fence);
 
-            float hidden1 = Objects.requireNonNull(hiddenLayerOutputBuffer.mapped)
-                    .segment()
-                    .get(ValueLayout.JAVA_FLOAT, 0);
-            float hidden2 = Objects.requireNonNull(hiddenLayerOutputBuffer.mapped)
-                    .segment()
-                    .get(ValueLayout.JAVA_FLOAT, Float.BYTES);
+            float hidden1 = pHiddenLayerOutputMapped.read(0);
+            float hidden2 = pHiddenLayerOutputMapped.read(1);
 
             // read output from output buffer
-            float output = Objects.requireNonNull(outputBuffer.mapped)
-                    .segment()
-                    .get(ValueLayout.JAVA_FLOAT, 0);
+            float output = pOutputMapped.read();
             boolean boolResult = output >= 0.5f;
 
             logger.info("测试 [" + i + "]" +
