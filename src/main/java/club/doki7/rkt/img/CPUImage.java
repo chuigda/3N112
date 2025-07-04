@@ -25,7 +25,7 @@ public final class CPUImage implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        this.cleanable.clean();
+        cleanable.clean();
     }
 
     private final Cleaner.Cleanable cleanable;
