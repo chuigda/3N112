@@ -1,0 +1,134 @@
+package club.doki7.rkt.shaderc;
+
+import club.doki7.ffm.annotation.EnumType;
+import club.doki7.ffm.ptr.BytePtr;
+import club.doki7.rkt.util.Result;
+import club.doki7.shaderc.Shaderc;
+import club.doki7.shaderc.ShadercUtil;
+import club.doki7.shaderc.enumtype.ShadercShaderKind;
+import club.doki7.shaderc.handle.ShadercCompilationResult;
+import club.doki7.shaderc.handle.ShadercCompileOptions;
+import club.doki7.shaderc.handle.ShadercCompiler;
+
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.lang.ref.Cleaner;
+import java.util.Objects;
+
+public final class ShaderCompiler implements AutoCloseable {
+    public Result<String, String> compileIntoAssembly(
+            String fileName,
+            String sourceCode,
+            @EnumType(ShadercShaderKind.class) int shaderKind
+    ) {
+        try (Arena arena = Arena.ofConfined()) {
+            BytePtr pFileName = BytePtr.allocateString(arena, fileName);
+            BytePtr pSourceCode = BytePtr.allocateString(arena, sourceCode);
+
+            ShadercCompilationResult result = shaderc.compileIntoSPVAssembly(
+                    compiler,
+                    pSourceCode,
+                    pSourceCode.size() - 1,
+                    shaderKind,
+                    pFileName,
+                    entryPoint,
+                    options
+            );
+
+            long numErrors = shaderc.resultGetNumErrors(result);
+            if (numErrors != 0) {
+                String errorMessage = Objects.requireNonNull(shaderc.resultGetErrorMessage(result))
+                        .readString();
+                shaderc.resultRelease(result);
+                return Result.err(errorMessage);
+            }
+
+            String spvAssembly = Objects.requireNonNull(shaderc.resultGetBytes(result))
+                    .readString();
+            shaderc.resultRelease(result);
+            return Result.ok(spvAssembly);
+        }
+    }
+
+    public Result<BytePtr, String> compileIntoSPV(
+            Arena resultArena,
+            String fileName,
+            String sourceCode,
+            @EnumType(ShadercShaderKind.class) int shaderKind
+    ) {
+        try (Arena arena = Arena.ofConfined()) {
+            BytePtr pFileName = BytePtr.allocateString(arena, fileName);
+            BytePtr pSourceCode = BytePtr.allocateString(arena, sourceCode);
+
+            ShadercCompilationResult result = shaderc.compileIntoSPV(
+                    compiler,
+                    pSourceCode,
+                    pSourceCode.size() - 1,
+                    shaderKind,
+                    pFileName,
+                    entryPoint,
+                    options
+            );
+
+            long numErrors = shaderc.resultGetNumErrors(result);
+            if (numErrors != 0) {
+                String errorMessage = Objects.requireNonNull(shaderc.resultGetErrorMessage(result))
+                        .readString();
+                shaderc.resultRelease(result);
+                return Result.err(errorMessage);
+            }
+
+            BytePtr spvBytes = Objects.requireNonNull(shaderc.resultGetBytes(result));
+            long spvSize = spvBytes.size();
+            assert spvSize % 4 == 0 : "SPIR-V size must be a multiple of 4 bytes, got: " + spvSize;
+            spvBytes.reinterpret(spvSize);
+
+            BytePtr retPtr = BytePtr.allocateAligned(resultArena, spvSize, 4);
+            retPtr.segment().copyFrom(spvBytes.segment());
+            shaderc.resultRelease(result);
+            return Result.ok(retPtr);
+        }
+    }
+
+    public static ShaderCompiler create(Shaderc shaderc, ShadercUtil.IncludeResolve includeResolve) {
+        ShadercCompiler compiler = shaderc.compilerInitialize();
+        ShadercCompileOptions options = shaderc.compileOptionsInitialize();
+
+        ShadercUtil.IncludeCallbacks callbacks = ShadercUtil.makeCallbacks(
+                Arena.global(),
+                includeResolve
+        );
+        shaderc.compileOptionsSetIncludeCallbacks(
+                options,
+                callbacks.pfnIncludeResolve,
+                callbacks.pfnIncludeResultRelease,
+                MemorySegment.NULL
+        );
+
+        return new ShaderCompiler(shaderc, compiler, options);
+    }
+
+    @Override
+    public void close() throws Exception {
+        cleanable.clean();
+    }
+
+    private ShaderCompiler(Shaderc shaderc, ShadercCompiler compiler, ShadercCompileOptions options) {
+        this.shaderc = shaderc;
+        this.compiler = compiler;
+        this.options = options;
+
+        this.cleanable = cleaner.register(this, () -> {
+            shaderc.compileOptionsRelease(options);
+            shaderc.compilerRelease(compiler);
+        });
+    }
+
+    private final Shaderc shaderc;
+    private final ShadercCompiler compiler;
+    private final ShadercCompileOptions options;
+    private final Cleaner.Cleanable cleanable;
+
+    private static final Cleaner cleaner = Cleaner.create();
+    private static final BytePtr entryPoint = BytePtr.allocateString(Arena.global(), "main");
+}
