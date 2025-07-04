@@ -1,6 +1,7 @@
 #version 450
 
 layout(constant_id = 0) const uint mnist_image_wh = 28;
+layout(constant_id = 1) const uint batch_size = 1;
 
 const uint input_size = mnist_image_wh * mnist_image_wh;
 
