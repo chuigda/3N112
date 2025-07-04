@@ -1,7 +1,5 @@
 #version 450
 
-layout(constant_id = 0) const uint batch_size = 1;
-
 layout(local_size_x = 1, local_size_y = 1) in;
 
 layout(set = 0, binding = 0) buffer InputBuffer {
