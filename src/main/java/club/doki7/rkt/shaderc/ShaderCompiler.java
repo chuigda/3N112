@@ -2,13 +2,14 @@ package club.doki7.rkt.shaderc;
 
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.BytePtr;
-import club.doki7.rkt.util.Result;
+import club.doki7.rkt.exc.ShaderCompileException;
 import club.doki7.shaderc.Shaderc;
 import club.doki7.shaderc.ShadercUtil;
 import club.doki7.shaderc.enumtype.ShadercShaderKind;
 import club.doki7.shaderc.handle.ShadercCompilationResult;
 import club.doki7.shaderc.handle.ShadercCompileOptions;
 import club.doki7.shaderc.handle.ShadercCompiler;
+import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -16,16 +17,17 @@ import java.lang.ref.Cleaner;
 import java.util.Objects;
 
 public final class ShaderCompiler implements AutoCloseable {
-    public Result<String, String> compileIntoAssembly(
+    public String compileIntoAssembly(
             String fileName,
             String sourceCode,
             @EnumType(ShadercShaderKind.class) int shaderKind
-    ) {
+    ) throws ShaderCompileException {
+        @Nullable ShadercCompilationResult result = null;
         try (Arena arena = Arena.ofConfined()) {
             BytePtr pFileName = BytePtr.allocateString(arena, fileName);
             BytePtr pSourceCode = BytePtr.allocateString(arena, sourceCode);
 
-            ShadercCompilationResult result = shaderc.compileIntoSPVAssembly(
+            result = Objects.requireNonNull(shaderc.compileIntoSPVAssembly(
                     compiler,
                     pSourceCode,
                     pSourceCode.size() - 1,
@@ -33,34 +35,35 @@ public final class ShaderCompiler implements AutoCloseable {
                     pFileName,
                     entryPoint,
                     options
-            );
+            ));
 
             long numErrors = shaderc.resultGetNumErrors(result);
             if (numErrors != 0) {
                 String errorMessage = Objects.requireNonNull(shaderc.resultGetErrorMessage(result))
                         .readString();
-                shaderc.resultRelease(result);
-                return Result.err(errorMessage);
+                throw new ShaderCompileException(errorMessage);
             }
 
-            String spvAssembly = Objects.requireNonNull(shaderc.resultGetBytes(result))
-                    .readString();
-            shaderc.resultRelease(result);
-            return Result.ok(spvAssembly);
+            return Objects.requireNonNull(shaderc.resultGetBytes(result)).readString();
+        } finally {
+            if (result != null) {
+                shaderc.resultRelease(result);
+            }
         }
     }
 
-    public Result<BytePtr, String> compileIntoSPV(
+    public BytePtr compileIntoSPV(
             Arena resultArena,
             String fileName,
             String sourceCode,
             @EnumType(ShadercShaderKind.class) int shaderKind
-    ) {
+    ) throws ShaderCompileException {
+        ShadercCompilationResult result = null;
         try (Arena arena = Arena.ofConfined()) {
             BytePtr pFileName = BytePtr.allocateString(arena, fileName);
             BytePtr pSourceCode = BytePtr.allocateString(arena, sourceCode);
 
-            ShadercCompilationResult result = shaderc.compileIntoSPV(
+            result = Objects.requireNonNull(shaderc.compileIntoSPV(
                     compiler,
                     pSourceCode,
                     pSourceCode.size() - 1,
@@ -68,14 +71,13 @@ public final class ShaderCompiler implements AutoCloseable {
                     pFileName,
                     entryPoint,
                     options
-            );
+            ));
 
             long numErrors = shaderc.resultGetNumErrors(result);
             if (numErrors != 0) {
                 String errorMessage = Objects.requireNonNull(shaderc.resultGetErrorMessage(result))
                         .readString();
-                shaderc.resultRelease(result);
-                return Result.err(errorMessage);
+                throw new ShaderCompileException(errorMessage);
             }
 
             BytePtr spvBytes = Objects.requireNonNull(shaderc.resultGetBytes(result));
@@ -85,8 +87,11 @@ public final class ShaderCompiler implements AutoCloseable {
 
             BytePtr retPtr = BytePtr.allocateAligned(resultArena, spvSize, 4);
             retPtr.segment().copyFrom(spvBytes.segment());
-            shaderc.resultRelease(result);
-            return Result.ok(retPtr);
+            return retPtr;
+        } finally {
+            if (result != null) {
+                shaderc.resultRelease(result);
+            }
         }
     }
 
