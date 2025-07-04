@@ -7,6 +7,7 @@ module club.doki7.rkt {
     requires java.logging;
     requires org.jetbrains.annotations;
     requires club.doki7.stb;
+    requires club.doki7.shaderc;
 
     exports club.doki7.rkt.exc;
     exports club.doki7.rkt.util;
