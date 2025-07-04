@@ -1,9 +1,13 @@
 #version 450
 
+layout(constant_id = 0) const uint mnist_image_wh = 28;
+
+const uint input_size = mnist_image_wh * mnist_image_wh;
+
 layout(local_size_x = 1, local_size_y = 1) in;
 
 layout(set = 0, binding = 0) buffer InputBuffer {
-    float input_data[];
+    bool mnist_image[input_size];
 };
 layout(set = 0, binding = 1) buffer WeightsBuffer {
     float weights[];
@@ -13,10 +17,6 @@ layout(set = 0, binding = 2) buffer BiasBuffer {
 };
 layout(set = 0, binding = 3) buffer OutputBuffer {
     float output_data[];
-};
-
-layout(push_constant) uniform PushConstants {
-    uint input_size;
 };
 
 float sigmoid(float x) {
@@ -31,7 +31,7 @@ void main() {
 
     float sum = bias[idx];
     for (int i = 0; i < input_size; ++i) {
-        sum += weights[idx * input_size + i] * input_data[i];
+        sum += weights[idx * input_size + i] * float(mnist_image[i]);
     }
     output_data[idx] = sigmoid(sum);
 }
