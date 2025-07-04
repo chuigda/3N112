@@ -324,12 +324,12 @@ final class Application implements AutoCloseable {
                     .get(ValueLayout.JAVA_FLOAT, 0);
             boolean boolResult = output >= 0.5f;
 
-            logger.info("Test [" + i + "]" +
-                        " | Input: " + inputValues[i][0] + ", " + inputValues[i][1] +
-                        " | Hidden Layer Output: " + hidden1 + ", " + hidden2 +
-                        " | Output: " + boolResult + "(" + output + ")" +
-                        " | Expected: " + expectedOutput[i] +
-                        " | Success: " + (boolResult == expectedOutput[i]));
+            logger.info("测试 [" + i + "]" +
+                        " | 输入层: " + inputValues[i][0] + ", " + inputValues[i][1] +
+                        " | 隐含层: " + hidden1 + ", " + hidden2 +
+                        " | 输出层: " + boolResult + "(" + output + ")" +
+                        " | 期望结果: " + expectedOutput[i] +
+                        " | 成功: " + (boolResult == expectedOutput[i]));
         }
         // endregion
     }
