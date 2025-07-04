@@ -109,7 +109,7 @@ public final class ShaderCompiler implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         cleanable.clean();
     }
 

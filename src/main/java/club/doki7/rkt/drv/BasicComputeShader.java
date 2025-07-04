@@ -8,6 +8,7 @@ import club.doki7.rkt.util.Result;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.shaderc.Shaderc;
+import club.doki7.shaderc.ShadercUtil;
 import club.doki7.shaderc.enumtype.ShadercShaderKind;
 import club.doki7.vulkan.command.VulkanLoader;
 
@@ -37,22 +38,20 @@ public final class BasicComputeShader {
             ISharedLibrary libShaderc
     ) throws RenderException {
         RenderConfig config = new RenderConfig();
+        Shaderc shaderc = new Shaderc(libShaderc);
 
-        try (RenderContext cx = RenderContext.createHeadless(libVulkan, libVMA, config)) {
+        ShadercUtil.IncludeResolve unsupportedResolve = (_, _, _, _) -> {
+            throw new UnsupportedOperationException();
+        };
+
+        try (RenderContext cx = RenderContext.createHeadless(libVulkan, libVMA, config);
+             ShaderCompiler compiler = ShaderCompiler.create(shaderc, unsupportedResolve)) {
             String shaderSource;
             try {
                 shaderSource = Files.readString(Path.of("resc/shader/basic.comp"));
             } catch (IOException e) {
                 throw new RuntimeException("无法打开 shader 文件: basic.comp", e);
             }
-
-            Shaderc shaderc = new Shaderc(libShaderc);
-            ShaderCompiler compiler = ShaderCompiler.create(
-                    shaderc,
-                    (_, _, _, _) -> {
-                        throw new UnsupportedOperationException();
-                    }
-            );
 
             Result<String, String> compileResult = compiler.compileIntoAssembly(
                     "basic.comp",

@@ -270,6 +270,7 @@ public final class RenderContext implements AutoCloseable {
             ISharedLibrary libVMA,
             RenderConfig config
     ) throws RenderException {
+        logger.info("注意：正以无头模式创建渲染上下文");
         return new ContextInit(libVulkan, libVMA, null, null, config).init();
     }
 
