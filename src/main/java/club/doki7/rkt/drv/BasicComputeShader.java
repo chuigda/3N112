@@ -129,14 +129,11 @@ final class Application implements AutoCloseable {
             it.coherent = true;
             it.usage = Set.of(Buffer.Usage.STORAGE_BUFFER);
         });
-        Buffer.Options optionsSSBO = Buffer.Options.init(
-                it -> it.usage = Set.of(Buffer.Usage.STORAGE_BUFFER)
-        );
 
         Buffer inputBuffer =
                 Buffer.create(cx, inputSize * Float.BYTES, true, optionsMappedSSBO);
         Buffer hiddenLayerOutputBuffer =
-                Buffer.create(cx, hiddenLayerSize * Float.BYTES, true, optionsSSBO);
+                Buffer.create(cx, hiddenLayerSize * Float.BYTES, true, optionsMappedSSBO);
         Buffer outputBuffer =
                 Buffer.create(cx, outputLayerSize * Float.BYTES, true, optionsMappedSSBO);
 
@@ -314,6 +311,13 @@ final class Application implements AutoCloseable {
             cx.waitForFence(fence);
             cx.resetFence(fence);
 
+            float hidden1 = Objects.requireNonNull(hiddenLayerOutputBuffer.mapped)
+                    .segment()
+                    .get(ValueLayout.JAVA_FLOAT, 0);
+            float hidden2 = Objects.requireNonNull(hiddenLayerOutputBuffer.mapped)
+                    .segment()
+                    .get(ValueLayout.JAVA_FLOAT, Float.BYTES);
+
             // read output from output buffer
             float output = Objects.requireNonNull(outputBuffer.mapped)
                     .segment()
@@ -322,8 +326,9 @@ final class Application implements AutoCloseable {
 
             logger.info("Test [" + i + "]" +
                         " | Input: " + inputValues[i][0] + ", " + inputValues[i][1] +
-                        " | Expected: " + expectedOutput[i] +
+                        " | Hidden Layer Output: " + hidden1 + ", " + hidden2 +
                         " | Output: " + boolResult + "(" + output + ")" +
+                        " | Expected: " + expectedOutput[i] +
                         " | Success: " + (boolResult == expectedOutput[i]));
         }
         // endregion
