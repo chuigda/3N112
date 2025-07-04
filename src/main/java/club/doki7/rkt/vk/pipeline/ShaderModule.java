@@ -1,6 +1,7 @@
 package club.doki7.rkt.vk.pipeline;
 
 import club.doki7.ffm.annotation.EnumType;
+import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.vk.IDisposeOnContext;
@@ -23,6 +24,27 @@ public final class ShaderModule implements AutoCloseable {
             VkShaderModuleCreateInfo createInfo = VkShaderModuleCreateInfo.allocate(arena)
                     .pCode(IntPtr.allocate(arena, code))
                     .codeSize(code.length);
+            VkShaderModule.Ptr pShaderModule = VkShaderModule.Ptr.allocate(arena);
+            @EnumType(VkResult.class) int result = cx.dCmd.createShaderModule(
+                    cx.device,
+                    createInfo,
+                    null,
+                    pShaderModule
+            );
+            if (result != VkResult.SUCCESS) {
+                throw new VulkanException(result, "无法创建着色器模块");
+            }
+
+            VkShaderModule handle = Objects.requireNonNull(pShaderModule.read());
+            return new ShaderModule(handle, cx);
+        }
+    }
+
+    public static ShaderModule create(RenderContext cx, BytePtr code) throws VulkanException {
+        try (Arena arena = Arena.ofConfined()) {
+            VkShaderModuleCreateInfo createInfo = VkShaderModuleCreateInfo.allocate(arena)
+                    .pCode(IntPtr.checked(code.segment()))
+                    .codeSize(code.size());
             VkShaderModule.Ptr pShaderModule = VkShaderModule.Ptr.allocate(arena);
             @EnumType(VkResult.class) int result = cx.dCmd.createShaderModule(
                     cx.device,

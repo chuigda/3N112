@@ -26,6 +26,7 @@ import java.lang.ref.Cleaner;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public final class Buffer implements AutoCloseable {
     public enum Usage {
@@ -87,6 +88,12 @@ public final class Buffer implements AutoCloseable {
             this.sharingMode = shared
                     ? VkSharingMode.CONCURRENT
                     : VkSharingMode.EXCLUSIVE;
+        }
+
+        public static Options init(Consumer<OptionsInit> consumer) {
+            OptionsInit ret = new OptionsInit();
+            consumer.accept(ret);
+            return ret.build();
         }
     }
 

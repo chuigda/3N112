@@ -13,8 +13,10 @@ import club.doki7.rkt.vk.init.ContextInit;
 import club.doki7.ffm.annotation.Unsafe;
 import club.doki7.glfw.GLFW;
 import club.doki7.glfw.handle.GLFWwindow;
+import club.doki7.rkt.vk.sync.Fence;
 import club.doki7.vma.VMA;
 import club.doki7.vma.handle.VmaAllocator;
+import club.doki7.vulkan.VkConstants;
 import club.doki7.vulkan.bitmask.VkPipelineStageFlags;
 import club.doki7.vulkan.command.VkDeviceCommands;
 import club.doki7.vulkan.command.VkEntryCommands;
@@ -23,6 +25,7 @@ import club.doki7.vulkan.command.VkStaticCommands;
 import club.doki7.vulkan.datatype.VkSubmitInfo;
 import club.doki7.vulkan.enumtype.VkResult;
 import club.doki7.vulkan.handle.*;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.foreign.Arena;
@@ -167,22 +170,50 @@ public final class RenderContext implements AutoCloseable {
         return computeQueue != null;
     }
 
-    public void submitGraphics(SubmitInfo info, @Nullable VkFence fence) throws VulkanException {
-        submitToQueue(graphicsQueue, graphicsQueueLock, info, fence);
+    public void submitGraphics(SubmitInfo info, @Nullable Fence fence) throws VulkanException {
+        submitToQueue(graphicsQueue, graphicsQueueLock, info, fence != null ? fence.handle : null);
     }
 
-    public void submitCompute(SubmitInfo info, @Nullable VkFence fence) throws VulkanException {
+    public void submitCompute(SubmitInfo info, @Nullable Fence fence) throws VulkanException {
         if (!hasComputeQueue()) {
             throw new IllegalStateException("没有可用的计算队列");
         }
-        submitToQueue(computeQueue, computeQueueLock, info, fence);
+        submitToQueue(computeQueue, computeQueueLock, info, fence != null ? fence.handle : null);
     }
 
-    public void submitTransfer(SubmitInfo info, @Nullable VkFence fence) throws VulkanException {
+    public void submitTransfer(SubmitInfo info, @Nullable Fence fence) throws VulkanException {
         if (!hasTransferQueue()) {
             throw new IllegalStateException("没有可用的传输队列");
         }
-        submitToQueue(transferQueue, transferQueueLock, info, fence);
+        submitToQueue(transferQueue, transferQueueLock, info, fence != null ? fence.handle : null);
+    }
+
+    public void waitForFence(@NotNull Fence fence) throws VulkanException {
+        try (Arena arena = Arena.ofConfined()) {
+            @EnumType(VkResult.class) int result = dCmd.waitForFences(
+                    device,
+                    1,
+                    VkFence.Ptr.allocateV(arena, fence.handle),
+                    VkConstants.TRUE,
+                    Long.MAX_VALUE
+            );
+            if (result != VkResult.SUCCESS) {
+                throw new VulkanException(result, "等待栅栏失败");
+            }
+        }
+    }
+
+    public void resetFence(@NotNull Fence fence) throws VulkanException {
+        try (Arena arena = Arena.ofConfined()) {
+            @EnumType(VkResult.class) int result = dCmd.resetFences(
+                    device,
+                    1,
+                    VkFence.Ptr.allocateV(arena, fence.handle)
+            );
+            if (result != VkResult.SUCCESS) {
+                throw new VulkanException(result, "重置栅栏失败");
+            }
+        }
     }
 
     public void waitDeviceIdle() {

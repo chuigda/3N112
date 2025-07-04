@@ -27,7 +27,6 @@ public final class DescriptorSet {
             VkWriteDescriptorSet descriptorSetWrite = descriptorSetWrites.at(i);
             descriptorSetWrite
                     .dstBinding(i)
-                    .dstArrayElement(0)
                     .descriptorCount(1);
             descriptor.updateWriteDescriptorSet(descriptorSetWrite);
         }

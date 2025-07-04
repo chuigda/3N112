@@ -10,6 +10,7 @@ import club.doki7.vulkan.datatype.VkComputePipelineCreateInfo;
 import club.doki7.vulkan.datatype.VkSpecializationInfo;
 import club.doki7.vulkan.datatype.VkSpecializationMapEntry;
 import club.doki7.vulkan.enumtype.VkResult;
+import club.doki7.vulkan.enumtype.VkStructureType;
 import club.doki7.vulkan.handle.VkPipeline;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,6 +50,7 @@ public final class ComputePipeline implements AutoCloseable {
 
             VkComputePipelineCreateInfo createInfo = VkComputePipelineCreateInfo.allocate(arena)
                     .stage(it -> it
+                            .sType(VkStructureType.PIPELINE_SHADER_STAGE_CREATE_INFO)
                             .stage(VkShaderStageFlags.COMPUTE)
                             .module(computeShader.handle)
                             .pName(entryName)

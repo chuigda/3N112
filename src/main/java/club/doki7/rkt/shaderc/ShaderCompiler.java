@@ -80,11 +80,11 @@ public final class ShaderCompiler implements AutoCloseable {
                 throw new ShaderCompileException(errorMessage);
             }
 
-            BytePtr spvBytes = Objects.requireNonNull(shaderc.resultGetBytes(result));
-            long spvSize = spvBytes.size();
+            long spvSize = shaderc.resultGetLength(result);
             assert spvSize % 4 == 0 : "SPIR-V size must be a multiple of 4 bytes, got: " + spvSize;
-            spvBytes.reinterpret(spvSize);
 
+            BytePtr spvBytes = Objects.requireNonNull(shaderc.resultGetBytes(result))
+                    .reinterpret(spvSize);
             BytePtr retPtr = BytePtr.allocateAligned(resultArena, spvSize, 4);
             retPtr.segment().copyFrom(spvBytes.segment());
             return retPtr;
