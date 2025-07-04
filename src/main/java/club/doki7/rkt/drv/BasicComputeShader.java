@@ -205,8 +205,8 @@ final class Application implements AutoCloseable {
                 outputSSBO
         ));
 
-        IntPtr pushConstant1 = IntPtr.allocateV(arena, hiddenLayerSize);
-        IntPtr pushConstant2 = IntPtr.allocateV(arena, outputLayerSize);
+        IntPtr pushConstant1 = IntPtr.allocateV(arena, inputSize);
+        IntPtr pushConstant2 = IntPtr.allocateV(arena, hiddenLayerSize);
         // endregion
 
         // region 6. command buffer recording
@@ -387,7 +387,7 @@ final class Application implements AutoCloseable {
             },
             // output layer: 1 bias for the perceptron
             {
-                    -10.0f
+                    -30.0f
             }
     };
     private static final Logger logger = Logger.getLogger(Application.class.getName());
