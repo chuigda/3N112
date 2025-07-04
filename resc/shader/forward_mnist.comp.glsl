@@ -1,6 +1,8 @@
 #version 450
 
-layout(local_size_x = 1, local_size_y = 1) in;
+layout(constant_id = 0) const uint tx = 1;
+layout(constant_id = 1) const uint ty = 1;
+layout(local_size_x_id = 0, local_size_y_id = 0) in;
 
 layout(set = 0, binding = 0) buffer InputBuffer {
     float input_data[];
