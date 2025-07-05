@@ -4,6 +4,12 @@
 ///
 /// 特化常量
 /// - tx, ty: 优化选项，指定工作组的大小
+/// - activation: 激活函数类型
+///   - 0: sigmoid（默认）
+///   - 1: identity
+///   - 2: relu
+///   - 3: leaky relu
+///   - 4: tanh
 ///
 /// Dispatch
 /// - batch_size = WorkGroupSize.y * WorkGroupCount.y: 批次数量
@@ -29,6 +35,7 @@
 
 layout(constant_id = 0) const uint tx = 1;
 layout(constant_id = 1) const uint ty = 1;
+layout(constant_id = 2) const uint activation = 0;
 layout(local_size_x_id = 0, local_size_y_id = 0) in;
 
 layout(set = 0, binding = 0) uniform Options {
@@ -55,6 +62,14 @@ float sigmoid(float x) {
     return 1.0 / (1.0 + exp(-x));
 }
 
+float relu(float x) {
+    return max(0.0, x);
+}
+
+float leaky_relu(float x) {
+    return x < 0.0 ? 0.01 * x : x;
+}
+
 void main() {
     uint batch_size = gl_WorkGroupSize.y * gl_NumWorkGroups.y;
 
@@ -75,7 +90,13 @@ void main() {
     }
 
     if (use_activation) {
-        sum = sigmoid(sum);
+        switch (activation) {
+            case 0: sum = sigmoid(sum); break;
+            case 2: sum = relu(sum); break;
+            case 3: sum = leaky_relu(sum); break;
+            case 4: sum = tanh(sum); break;
+            case 1: default: break;
+        }
     }
 
     uint output_index = batch_index * perceptron_count + perceptron_index;
