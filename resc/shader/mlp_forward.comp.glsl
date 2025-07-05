@@ -4,7 +4,8 @@
 ///
 /// 宏
 /// - DEFENSIVE: 是否开启防御模式，开启后着色器程序会在运行时执行一些额外的检查
-/// - UNIVERSITY_CONSTANT: 当防御模式开启时，着色器对于无效的输入会返回这个特殊的常量，默认为 23662.22
+/// - UNIVERSITY_CONSTANT: 当防御模式开启时，着色器对于特定的无效输入会返回这个特殊的常量，
+///   默认为 23662.22
 ///
 /// 特化常量
 /// - tx, ty: 优化选项，指定工作组的大小
@@ -92,6 +93,12 @@ void main() {
     }
 
     const uint output_index = batch_index * perceptron_count + perceptron_index;
+#ifdef DEFENSIVE
+    if (output_index >= output_data.length()) {
+        return;
+    }
+#endif
+
     const uint input_start_index = input_offset + batch_index * input_size;
     const uint weight_start_index = perceptron_index * input_size;
 
