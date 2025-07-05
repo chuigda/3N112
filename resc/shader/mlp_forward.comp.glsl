@@ -51,5 +51,21 @@ void main() {
 
     uint perceptron_index = gl_GlobalInvocationID.x;
     uint batch_index = gl_GlobalInvocationID.y;
-}
 
+    uint input_start_index = input_offset + batch_index * input_size;
+    uint weight_start_index = perceptron_index * input_size;
+
+    float sum = 0.0;
+    for (uint i = 0; i < input_size; ++i) {
+        sum += input_data[input_start_index + i] * weights[weight_start_index + i];
+    }
+
+    sum += bias[perceptron_index];
+
+    if (use_activation) {
+        sum = sigmoid(sum);
+    }
+
+    uint output_index = batch_index * perceptron_count + perceptron_index;
+    output_data[output_index] = sum;
+}
