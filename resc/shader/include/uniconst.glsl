@@ -1,0 +1,5 @@
+#ifdef DEFENSIVE
+#ifndef UNIVERSITY_CONSTANT
+#define UNIVERSITY_CONSTANT 23662.22
+#endif
+#endif

@@ -9,12 +9,7 @@
 ///
 /// 特化常量
 /// - tx, ty: 优化选项，指定工作组的大小
-/// - activation: 激活函数类型
-///   - 0: sigmoid（默认）
-///   - 1: identity
-///   - 2: relu
-///   - 3: leaky relu
-///   - 4: tanh
+/// - activation: 激活函数类型，参见 include/activ.glsl
 /// - max_shared_input_size: 使用共享内存优化时，共享内存中最多能存储的输入数据大小
 ///   - 这个值设置为 0 时，表示不使用共享内存优化
 ///   - 这个值设置为非 0 时，运行时通过 uniform 传入的 input_size 不能大于这个值，且
@@ -39,9 +34,8 @@
 
 #version 450
 
-#ifndef UNIVERSITY_CONSTANT
-#define UNIVERSITY_CONSTANT 23662.22
-#endif
+#include "include/activ.glsl"
+#include "include/uniconst.glsl"
 
 layout(constant_id = 0) const uint tx = 1;
 layout(constant_id = 1) const uint ty = 1;
@@ -71,18 +65,6 @@ layout(set = 1, binding = 3) buffer OutputBuffer {
 };
 
 shared float shared_input_data[max_shared_input_size != 0 ? max_shared_input_size : 1];
-
-float sigmoid(float x) {
-    return 1.0 / (1.0 + exp(-x));
-}
-
-float relu(float x) {
-    return max(0.0, x);
-}
-
-float leaky_relu(float x) {
-    return x < 0.0 ? 0.01 * x : x;
-}
 
 void main() {
     const uint perceptron_index = gl_GlobalInvocationID.x;
@@ -130,13 +112,7 @@ void main() {
     }
 
     if (use_activation) {
-        switch (activation) {
-            case 0: sum = sigmoid(sum); break;
-            case 2: sum = relu(sum); break;
-            case 3: sum = leaky_relu(sum); break;
-            case 4: sum = tanh(sum); break;
-            case 1: default: break;
-        }
+        ACTIVATION(activation, sum);
     }
     output_data[output_index] = sum;
 }
