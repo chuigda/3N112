@@ -53,7 +53,7 @@ float tanh_deriv(float tanh_value) {
         case ACTIV_RELU:            (ACTIV) = relu(VALUE);       break; \
         case ACTIV_LEAKY_RELU:      (ACTIV) = leaky_relu(VALUE); break; \
         case ACTIV_TANH:            (ACTIV) = tanh(VALUE);       break; \
-        case ACTIV_LINEAR: default: break; \
+        case ACTIV_LINEAR: default: (ACTIV) = (VALUE);           break; \
     }
 
 #define ACTIVATION_DERIV(MODE_SELECT, VALUE, DERIV) \
