@@ -7,8 +7,8 @@
 /// - transposed_weights: 权重矩阵是否有转置
 ///
 /// Dispatch
-/// - WorkGroupSize.y * WorkGroupCount.y: 批次数量
-/// - WorkGroupSize.x * WorkGroupCount.x: 感知机数量
+/// - batch_size = WorkGroupSize.y * WorkGroupCount.y: 批次数量
+/// - perceptron_count = WorkGroupSize.x * WorkGroupCount.x: 感知机数量
 ///
 /// 配置常量
 /// - input_offset: 输入数据的偏移量，指定从输入数据（input_data）的哪个位置开始处理
@@ -17,10 +17,14 @@
 /// - use_activation: 本层是否使用激活函数
 ///
 /// 数据
-/// - input_data: 输入数据，包含所有批次的输入数据
-///               本批次（vkCmdDispatch）要处理的数据起始由 input_offset 指定
-///               每一批次共处理 input_size * batch_size 个数据
+/// - input_data:
+///   输入数据，包含所有批次的输入数据
+///   本批次（vkCmdDispatch）要处理的数据起始由 input_offset 指定
+///   每一批次共处理 batch_size 组输入数据，每组输入数据的大小为 input_size
+///   总计为 batch_size * input_size 个 float32
 /// - weights: 所有感知机的权重数据，每个感知机的权重数量为 input_size
+///   - 当 transposed_weights = false 时, 期望布局为 [perceptron_count, input_size] (行主序)
+///   - 当 transposed_weights = true 时, 期望布局为 [input_size, perceptron_count] (列主序)
 /// - bias: 所有感知机的偏置数据，每个感知机有一个偏置
 /// - output_data: 本批次中所有感知机的输出数据，总量为 batch_size * perceptron_count
 
