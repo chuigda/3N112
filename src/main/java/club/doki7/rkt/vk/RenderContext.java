@@ -9,6 +9,7 @@ import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.util.Pair;
 import club.doki7.rkt.util.Ref;
 import club.doki7.rkt.vk.cmd.SubmitInfo;
+import club.doki7.rkt.vk.common.QueueFamily;
 import club.doki7.rkt.vk.init.ContextInit;
 import club.doki7.ffm.annotation.Unsafe;
 import club.doki7.glfw.GLFW;
@@ -162,12 +163,34 @@ public final class RenderContext implements AutoCloseable {
         this.gcThread.start();
     }
 
+    public int getQueueFamilyIndex(QueueFamily queueFamily) {
+        return switch (queueFamily) {
+            case GRAPHICS -> graphicsQueueFamilyIndex;
+            case PRESENT -> presentQueueFamilyIndex;
+            case TRANSFER -> dedicatedTransferQueueFamilyIndex;
+            case COMPUTE -> dedicatedComputeQueueFamilyIndex;
+        };
+    }
+
     public boolean hasTransferQueue() {
         return transferQueue != null;
     }
 
     public boolean hasComputeQueue() {
         return computeQueue != null;
+    }
+
+    public void submit(
+            SubmitInfo info,
+            @Nullable Fence fence,
+            QueueFamily queueFamily
+    ) throws VulkanException {
+        switch (queueFamily) {
+            case PRESENT -> throw new IllegalStateException("不能向呈现队列提交命令");
+            case GRAPHICS -> submitGraphics(info, fence);
+            case TRANSFER -> submitTransfer(info, fence);
+            case COMPUTE -> submitCompute(info, fence);
+        }
     }
 
     public void submitGraphics(SubmitInfo info, @Nullable Fence fence) throws VulkanException {
