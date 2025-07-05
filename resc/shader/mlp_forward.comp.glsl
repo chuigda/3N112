@@ -4,7 +4,6 @@
 ///
 /// 特化常量
 /// - tx, ty: 优化选项，指定工作组的大小
-/// - transposed_weights: 权重矩阵是否有转置
 ///
 /// Dispatch
 /// - batch_size = WorkGroupSize.y * WorkGroupCount.y: 批次数量
@@ -23,16 +22,13 @@
 ///   每一批次共处理 batch_size 组输入数据，每组输入数据的大小为 input_size
 ///   总计为 batch_size * input_size 个 float32
 /// - weights: 所有感知机的权重数据，每个感知机的权重数量为 input_size
-///   - 当 transposed_weights = false 时, 期望布局为 [perceptron_count, input_size] (行主序)
-///   - 当 transposed_weights = true 时, 期望布局为 [input_size, perceptron_count] (列主序)
 /// - bias: 所有感知机的偏置数据，每个感知机有一个偏置
-/// - output_data: 本批次中所有感知机的输出数据，总量为 batch_size * perceptron_count
+/// - output_data: 本批次中所有感知机的输出数据，共计 batch_size * perceptron_count 个 float32
 
 #version 450
 
 layout(constant_id = 0) const uint tx = 1;
 layout(constant_id = 1) const uint ty = 1;
-layout(constant_id = 2) const bool transposed_weights = false;
 layout(local_size_x_id = 0, local_size_y_id = 0) in;
 
 layout(set = 0, binding = 0) uniform Options {
@@ -65,7 +61,7 @@ void main() {
     uint perceptron_index = gl_GlobalInvocationID.x;
     uint batch_index = gl_GlobalInvocationID.y;
 
-    if (perceptron_index >= perceptron_count || batch_index >= batch_size) {
+    if (perceptron_index >= perceptron_count) {
         return;
     }
 
@@ -73,15 +69,9 @@ void main() {
 
     float sum = bias[perceptron_index];
 
-    if (transposed_weights) {
-        for (uint i = 0; i < input_size; ++i) {
-            sum += input_data[input_start_index + i] * weights[perceptron_index + i * perceptron_count];
-        }
-    } else {
-        uint weight_start_index = perceptron_index * input_size;
-        for (uint i = 0; i < input_size; ++i) {
-            sum += input_data[input_start_index + i] * weights[weight_start_index + i];
-        }
+    uint weight_start_index = perceptron_index * input_size;
+    for (uint i = 0; i < input_size; ++i) {
+        sum += input_data[input_start_index + i] * weights[weight_start_index + i];
     }
 
     if (use_activation) {
