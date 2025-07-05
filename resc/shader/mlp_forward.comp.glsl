@@ -11,12 +11,9 @@
 ///   - 3: leaky relu
 ///   - 4: tanh
 ///
-/// Dispatch
-/// - batch_size = WorkGroupSize.y * WorkGroupCount.y: 批次数量
-/// - perceptron_count = WorkGroupSize.x * WorkGroupCount.x: 感知机数量
-///
 /// 配置常量
 /// - input_offset: 输入数据的偏移量，指定从输入数据（input_data）的哪个位置开始处理
+/// - batch_size: 本批次处理的数据组数
 /// - perceptron_count: 感知机的数量，同时也是对批次内每组数据输出的数据数量
 /// - input_size: 感知机接受的输入尺寸
 /// - use_activation: 本层是否使用激活函数
@@ -40,6 +37,7 @@ layout(local_size_x_id = 0, local_size_y_id = 0) in;
 
 layout(set = 0, binding = 0) uniform Options {
     uint input_offset;
+    uint batch_size;
     uint perceptron_count;
     uint input_size;
     bool use_activation;
@@ -71,12 +69,10 @@ float leaky_relu(float x) {
 }
 
 void main() {
-    uint batch_size = gl_WorkGroupSize.y * gl_NumWorkGroups.y;
-
     uint perceptron_index = gl_GlobalInvocationID.x;
     uint batch_index = gl_GlobalInvocationID.y;
 
-    if (perceptron_index >= perceptron_count) {
+    if (perceptron_index >= perceptron_count || batch_index >= batch_size) {
         return;
     }
 
