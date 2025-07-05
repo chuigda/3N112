@@ -20,7 +20,6 @@
 /// - batch_size: 本批次处理的数据组数
 /// - perceptron_count: 感知机的数量，同时也是对批次内每组数据输出的数据数量
 /// - input_size: 感知机接受的输入尺寸
-/// - use_activation: 本层是否使用激活函数
 ///
 /// 数据
 /// - input_data:
@@ -48,7 +47,6 @@ layout(set = 0, binding = 0) uniform Options {
     uint batch_size;
     uint perceptron_count;
     uint input_size;
-    bool use_activation;
 };
 
 layout(set = 1, binding = 0) buffer InputBuffer {
@@ -111,8 +109,5 @@ void main() {
         }
     }
 
-    if (use_activation) {
-        ACTIVATION(activation, sum);
-    }
-    output_data[output_index] = sum;
+    ACTIVATION(activation, sum, output_data[output_index]);
 }

@@ -47,22 +47,22 @@ float tanh_deriv(float tanh_value) {
 #define ACTIV_LEAKY_RELU 3
 #define ACTIV_TANH       4
 
-#define ACTIVATION(MODE_SELECT, VALUE) \
+#define ACTIVATION(MODE_SELECT, VALUE, ACTIV) \
     switch (MODE_SELECT) { \
-        case ACTIV_SIGMOID:    VALUE = sigmoid(VALUE);    break; \
-        case ACTIV_RELU:       VALUE = relu(VALUE);       break; \
-        case ACTIV_LEAKY_RELU: VALUE = leaky_relu(VALUE); break; \
-        case ACTIV_TANH:       VALUE = tanh(VALUE);       break; \
+        case ACTIV_SIGMOID:         (ACTIV) = sigmoid(VALUE);    break; \
+        case ACTIV_RELU:            (ACTIV) = relu(VALUE);       break; \
+        case ACTIV_LEAKY_RELU:      (ACTIV) = leaky_relu(VALUE); break; \
+        case ACTIV_TANH:            (ACTIV) = tanh(VALUE);       break; \
         case ACTIV_LINEAR: default: break; \
     }
 
-#define ACTIVATION_DERIVATIVE(MODE_SELECT, VALUE, DERIVATIVE) \
+#define ACTIVATION_DERIV(MODE_SELECT, VALUE, DERIV) \
     switch (MODE_SELECT) { \
-        case ACTIV_SIGMOID:    DERIVATIVE = sigmoid_deriv(VALUE);    break; \
-        case ACTIV_RELU:       DERIVATIVE = relu_deriv(VALUE);       break; \
-        case ACTIV_LEAKY_RELU: DERIVATIVE = leaky_relu_deriv(VALUE); break; \
-        case ACTIV_TANH:       DERIVATIVE = tanh_deriv(VALUE);       break; \
-        case ACTIV_LINEAR: default: DERIVATIVE = 1.0; break; \
+        case ACTIV_SIGMOID:         (DERIV) = sigmoid_deriv(VALUE);    break; \
+        case ACTIV_RELU:            (DERIV) = relu_deriv(VALUE);       break; \
+        case ACTIV_LEAKY_RELU:      (DERIV) = leaky_relu_deriv(VALUE); break; \
+        case ACTIV_TANH:            (DERIV) = tanh_deriv(VALUE);       break; \
+        case ACTIV_LINEAR: default: (DERIV) = 1.0; break; \
     }
 
 #endif // PR3N112_ACTIV_GLSL
