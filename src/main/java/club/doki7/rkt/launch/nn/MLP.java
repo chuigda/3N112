@@ -1,18 +1,13 @@
 package club.doki7.rkt.launch.nn;
 
-import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.library.ILibraryLoader;
 import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.rkt.exc.RenderException;
-import club.doki7.rkt.shaderc.ShaderCompiler;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.common.QueueFamily;
 import club.doki7.rkt.vk.resc.Buffer;
 import club.doki7.rkt.vk.resc.Transmission;
-import club.doki7.shaderc.Shaderc;
-import club.doki7.shaderc.ShadercUtil;
-import club.doki7.shaderc.enumtype.ShadercIncludeType;
 import club.doki7.vulkan.command.VulkanLoader;
 
 import java.io.IOException;
@@ -30,8 +25,7 @@ public final class MLP {
     public static void main(String[] args) {
         try (ISharedLibrary libVulkan = VulkanLoader.loadVulkanLibrary();
              ISharedLibrary libVMA = ILibraryLoader.platformLoader().loadLibrary("vma");
-             ISharedLibrary libShaderc = ILibraryLoader.platformLoader().loadLibrary("shaderc_shared");
-             Application app = new Application(libVulkan, libVMA, libShaderc)) {
+             Application app = new Application(libVulkan, libVMA)) {
             app.applicationStart();
         } catch (Throwable e) {
             e.printStackTrace(System.err);
@@ -43,12 +37,10 @@ final class Application implements AutoCloseable {
     @Override
     public void close() {
         cx.close();
-        compiler.close();
     }
 
-    Application(ISharedLibrary libVulkan, ISharedLibrary libVMA, ISharedLibrary libShaderc) throws RenderException {
+    Application(ISharedLibrary libVulkan, ISharedLibrary libVMA) throws RenderException {
         this.cx = RenderContext.createHeadless(libVulkan, libVMA, new RenderConfig());
-        this.compiler = ShaderCompiler.create(new Shaderc(libShaderc), Application::rescDirResolve);
     }
 
     void applicationStart() throws RenderException, IOException {
@@ -89,21 +81,9 @@ final class Application implements AutoCloseable {
     }
 
     private final RenderContext cx;
-    private final ShaderCompiler compiler;
 
     private Buffer[] weightsBuffer;
     private Buffer[] biasesBuffer;
-
-    private static ShadercUtil.IncludeResult rescDirResolve(
-            String requestedSource,
-            @EnumType(ShadercIncludeType.class) int includeType,
-            String requestingSource,
-            long includeDepth
-    ) throws IOException {
-        Path path = Path.of("resc", "shader", requestedSource);
-        String content = Files.readString(path);
-        return new ShadercUtil.IncludeResult(path.toAbsolutePath().toString(), content);
-    }
 
     private static final Logger logger = Logger.getLogger(Application.class.getName());
 }

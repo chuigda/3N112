@@ -55,13 +55,14 @@ layout(set = 0, binding = 0) uniform InferOptions {
 layout(set = 1, binding = 0) buffer InputBuffer {
     readonly float input_data[];
 };
-layout(set = 1, binding = 1) buffer WeightsBuffer {
+
+layout(set = 2, binding = 0) buffer WeightsBuffer {
     readonly float weights[];
 };
-layout(set = 1, binding = 2) buffer BiasBuffer {
+layout(set = 2, binding = 1) buffer BiasBuffer {
     readonly float bias[];
 };
-layout(set = 1, binding = 3) buffer OutputBuffer {
+layout(set = 2, binding = 2) buffer OutputBuffer {
     writeonly float output_data[];
 };
 
