@@ -13,5 +13,5 @@ FILES=(
 
 for file in "${FILES[@]}"; do
   echo "Downloading $file..."
-  wget "$BASE_URL/$file" -O "$file"
+  curl "$BASE_URL/$file" -o "$file"
 done

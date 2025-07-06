@@ -16,4 +16,5 @@ module club.doki7.rkt {
     exports club.doki7.rkt.vk.common;
     exports club.doki7.rkt.vk.cmd;
     exports club.doki7.rkt.vk.sync;
+    exports club.doki7.rkt.mmap;
 }
