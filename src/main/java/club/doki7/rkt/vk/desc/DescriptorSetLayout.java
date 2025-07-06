@@ -22,7 +22,8 @@ public final class DescriptorSetLayout implements AutoCloseable {
 
     public static DescriptorSetLayout create(
             RenderContext cx,
-            List<DescriptorSetLayoutBinding> bindings
+            List<DescriptorSetLayoutBinding> bindings,
+            boolean pushDescriptor
     ) throws VulkanException {
         try (Arena arena = Arena.ofConfined()) {
             VkDescriptorSetLayoutBinding.Ptr nBindings = VkDescriptorSetLayoutBinding.allocate(arena, bindings.size());
@@ -35,7 +36,7 @@ public final class DescriptorSetLayout implements AutoCloseable {
                         .stageFlags(binding.shaderStageFlags());
             }
             VkDescriptorSetLayoutCreateInfo createInfo = VkDescriptorSetLayoutCreateInfo.allocate(arena)
-                    .flags(VkDescriptorSetLayoutCreateFlags.PUSH_DESCRIPTOR)
+                    .flags(pushDescriptor ? VkDescriptorSetLayoutCreateFlags.PUSH_DESCRIPTOR : 0)
                     .bindingCount(bindings.size())
                     .pBindings(nBindings);
             VkDescriptorSetLayout.Ptr pLayout = VkDescriptorSetLayout.Ptr.allocate(arena);
@@ -55,7 +56,7 @@ public final class DescriptorSetLayout implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         cleanable.clean();
     }
 

@@ -63,13 +63,13 @@ public final class MLPFactory implements AutoCloseable {
         // };
         mlpForwardSet0Layout = DescriptorSetLayout.create(cx, List.of(
                 new DescriptorSetLayoutBinding(DescriptorKind.UNIFORM_BUFFER, ShaderStage.COMPUTE)
-        ));
+        ), false);
         // layout(set = 1, binding = 0) buffer InputBuffer {
         //     readonly float input_data[];
         // };
         mlpForwardSet1Layout = DescriptorSetLayout.create(cx, List.of(
                 new DescriptorSetLayoutBinding(DescriptorKind.UNIFORM_BUFFER, ShaderStage.COMPUTE)
-        ));
+        ), false);
         // layout(set = 2, binding = 0) buffer WeightsBuffer {
         //     readonly float weights[];
         // };
@@ -83,7 +83,7 @@ public final class MLPFactory implements AutoCloseable {
                 new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE),
                 new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE),
                 new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE)
-        ));
+        ), false);
         mlpForwardPipelineLayout = PipelineLayout.create(cx, List.of(
                 mlpForwardSet0Layout,
                 mlpForwardSet1Layout,
@@ -96,7 +96,7 @@ public final class MLPFactory implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         mlpForwardPipelineLayout.close();
         mlpForwardSet0Layout.close();
         mlpForwardSet1Layout.close();

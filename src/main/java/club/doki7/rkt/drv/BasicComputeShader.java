@@ -110,7 +110,7 @@ final class Application implements AutoCloseable {
                 new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE),
                 // layout(set = 0, binding = 3) uniform buffer OutputBuffer { ... };
                 new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE)
-        ));
+        ), true);
         List<PushConstantRange> pushConstantRanges = List.of(
                 new PushConstantRange(Integer.BYTES, ShaderStage.COMPUTE)
         );
@@ -189,13 +189,13 @@ final class Application implements AutoCloseable {
         ShaderStorageBufferObject outputLayerBiasSSBO =
                 ShaderStorageBufferObject.create(cx, outputLayerBiasBuffer);
 
-        DescriptorSet layer1Set = DescriptorSet.create(cx, layout, List.of(
+        PushDescriptorSet layer1Set = PushDescriptorSet.create(cx, layout, List.of(
                 inputSSBO,
                 hiddenLayerWeightsSSBO,
                 hiddenLayerBiasSSBO,
                 hiddenLayer1OutputSSBO
         ));
-        DescriptorSet layer2Set = DescriptorSet.create(cx, layout, List.of(
+        PushDescriptorSet layer2Set = PushDescriptorSet.create(cx, layout, List.of(
                 hiddenLayer1OutputSSBO,
                 outputLayerWeightsSSBO,
                 outputLayerBiasSSBO,

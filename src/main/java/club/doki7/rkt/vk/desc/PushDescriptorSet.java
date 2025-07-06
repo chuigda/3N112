@@ -6,12 +6,12 @@ import club.doki7.vulkan.datatype.VkWriteDescriptorSet;
 import java.util.Collections;
 import java.util.List;
 
-public final class DescriptorSet {
+public final class PushDescriptorSet {
     public final VkWriteDescriptorSet.Ptr descriptorSetWrites;
     public final DescriptorSetLayout compatibleLayout;
     public final List<IDescriptor> descriptors;
 
-    public static DescriptorSet create(
+    public static PushDescriptorSet create(
             RenderContext cx,
             DescriptorSetLayout compatibleLayout,
             List<IDescriptor> descriptors
@@ -31,14 +31,14 @@ public final class DescriptorSet {
             descriptor.updateWriteDescriptorSet(descriptorSetWrite);
         }
 
-        return new DescriptorSet(
+        return new PushDescriptorSet(
                 descriptorSetWrites,
                 compatibleLayout,
                 Collections.unmodifiableList(descriptors)
         );
     }
 
-    private DescriptorSet(
+    private PushDescriptorSet(
             VkWriteDescriptorSet.Ptr descriptorSetWrites,
             DescriptorSetLayout compatibleLayout,
             List<IDescriptor> descriptors
