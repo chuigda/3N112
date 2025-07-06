@@ -9,6 +9,8 @@
 ///
 /// 特化常量
 /// - tx, ty: 优化选项，指定工作组的大小
+/// - perceptron_count: 本层感知机的数量
+/// - input_size: 每个感知机接受的输入数据大小
 /// - activation: 激活函数类型，参见 include/activ.glsl
 /// - max_shared_input_size: 使用共享内存优化时，共享内存中最多能存储的输入数据大小
 ///   - 这个值设置为 0 时，表示不使用共享内存优化
@@ -19,9 +21,6 @@
 /// - 推理选项（InferOptions）
 ///   - input_offset: 输入数据的偏移量，指定从输入数据（input_data）的哪个位置开始处理
 ///   - batch_size: 本批次处理的数据组数
-/// - 层选项（LayerOptions）
-///   - perceptron_count: 感知机的数量，同时也是对批次内每组数据输出的数据数量
-///   - input_size: 感知机接受的输入尺寸
 ///
 /// 输入数据
 /// - input_data: 输入数据，包含所有批次的输入数据
@@ -41,8 +40,11 @@
 
 layout(constant_id = 0) const uint tx = 1;
 layout(constant_id = 1) const uint ty = 1;
-layout(constant_id = 2) const uint activation = 0;
-layout(constant_id = 3) const uint max_shared_input_size = 0;
+layout(constant_id = 2) const uint perceptron_count = 1;
+layout(constant_id = 3) const uint input_size = 1;
+layout(constant_id = 4) const uint activation = 0;
+layout(constant_id = 5) const uint max_shared_input_size = 0;
+
 layout(local_size_x_id = 0, local_size_y_id = 0) in;
 
 layout(set = 0, binding = 0) uniform InferOptions {
@@ -50,20 +52,16 @@ layout(set = 0, binding = 0) uniform InferOptions {
     uint batch_size;
 };
 
-layout(set = 1, binding = 0) uniform LayerOptions {
-    uint perceptron_count;
-    uint input_size;
-};
-layout(set = 1, binding = 1) buffer InputBuffer {
+layout(set = 1, binding = 0) buffer InputBuffer {
     readonly float input_data[];
 };
-layout(set = 1, binding = 2) buffer WeightsBuffer {
+layout(set = 1, binding = 1) buffer WeightsBuffer {
     readonly float weights[];
 };
-layout(set = 1, binding = 3) buffer BiasBuffer {
+layout(set = 1, binding = 2) buffer BiasBuffer {
     readonly float bias[];
 };
-layout(set = 1, binding = 4) buffer OutputBuffer {
+layout(set = 1, binding = 3) buffer OutputBuffer {
     writeonly float output_data[];
 };
 
