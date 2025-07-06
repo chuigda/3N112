@@ -5,16 +5,11 @@ import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.rkt.exc.RenderException;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
-import club.doki7.rkt.vk.common.QueueFamily;
 import club.doki7.rkt.vk.resc.Buffer;
-import club.doki7.rkt.vk.resc.Transmission;
 import club.doki7.vulkan.command.VulkanLoader;
 
 import java.io.IOException;
-import java.lang.foreign.MemorySegment;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Set;
+import java.util.List;
 import java.util.logging.Logger;
 
 public final class MNIST_Infer {
@@ -45,7 +40,17 @@ final class Application implements AutoCloseable {
 
     void applicationStart() throws RenderException, IOException {
         try (MLPFactory factory = new MLPFactory(cx)) {
-            System.out.println("factory successfully initialized");
+            MLPInfer model = factory.createInfer(new MLPOptions(
+                    28 * 28,
+                    List.of(
+                            new MLPOptions.Layer(300, Activation.SIGMOID),
+                            new MLPOptions.Layer(100, Activation.SIGMOID),
+                            new MLPOptions.Layer(10, Activation.LINEAR)
+                    ),
+                    64,
+                    true
+            ));
+            System.out.println("model successfully created");
         }
     }
 

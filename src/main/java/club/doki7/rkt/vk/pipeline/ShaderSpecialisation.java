@@ -1,8 +1,8 @@
 package club.doki7.rkt.vk.pipeline;
 
-import club.doki7.ffm.IPointer;
 import club.doki7.ffm.annotation.Unsigned;
 
+import java.lang.foreign.MemorySegment;
 import java.util.Collections;
 import java.util.List;
 
@@ -20,9 +20,9 @@ public final class ShaderSpecialisation {
     }
 
     public final List<Entry> entries;
-    public final IPointer data;
+    public final MemorySegment data;
 
-    public ShaderSpecialisation(List<Entry> entries, IPointer data) {
+    public ShaderSpecialisation(List<Entry> entries, MemorySegment data) {
         this.entries = Collections.unmodifiableList(entries);
         this.data = data;
     }

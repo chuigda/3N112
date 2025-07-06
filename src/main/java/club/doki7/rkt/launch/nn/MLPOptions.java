@@ -4,30 +4,30 @@ import java.util.Collections;
 import java.util.List;
 
 public final class MLPOptions {
-    public static final class LayerConfig {
+    public static final class Layer {
         public final int size;
         public final Activation activ;
 
-        public LayerConfig(int size, Activation activ) {
+        public Layer(int size, Activation activ) {
             this.size = size;
             this.activ = activ;
         }
     }
 
     public final int inputSize;
-    public final List<LayerConfig> layers;
-    public final int neuronWorkgroupSize;
+    public final List<Layer> layers;
+    public final int perceptronWorkgroupSize;
     public final boolean useSharedMemory;
 
     public MLPOptions(
             int inputSize,
-            List<LayerConfig> layers,
-            int neuronWorkgroupSize,
+            List<Layer> layers,
+            int perceptronWorkgroupSize,
             boolean useSharedMemory
     ) {
         this.inputSize = inputSize;
         this.layers = Collections.unmodifiableList(layers);
-        this.neuronWorkgroupSize = neuronWorkgroupSize;
+        this.perceptronWorkgroupSize = perceptronWorkgroupSize;
         this.useSharedMemory = useSharedMemory;
     }
 }

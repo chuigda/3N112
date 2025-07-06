@@ -12,32 +12,32 @@ public final class MLPInfer implements AutoCloseable {
     public MLPInfer(
             MLPOptions options,
             RenderContext cx,
-            List<Buffer> weightBuffer,
-            List<Buffer> biasBuffer,
-            List<ComputePipeline> computePipelines
+            List<Buffer> weightBufferList,
+            List<Buffer> biasBufferList,
+            List<ComputePipeline> computePipelineList
     ) {
         this.options = options;
         this.cx = cx;
-        this.weightBuffer = weightBuffer;
-        this.biasBuffer = biasBuffer;
-        this.computePipelines = computePipelines;
+        this.weightBufferList = weightBufferList;
+        this.biasBufferList = biasBufferList;
+        this.computePipelineList = computePipelineList;
     }
 
     @Override
     public void close() throws Exception {
-        for (ComputePipeline pipeline : computePipelines) {
+        for (ComputePipeline pipeline : computePipelineList) {
             pipeline.close();
         }
-        for (Buffer buffer : weightBuffer) {
+        for (Buffer buffer : weightBufferList) {
             buffer.close();
         }
-        for (Buffer buffer : biasBuffer) {
+        for (Buffer buffer : biasBufferList) {
             buffer.close();
         }
     }
 
     final RenderContext cx;
-    final List<Buffer> weightBuffer;
-    final List<Buffer> biasBuffer;
-    final List<ComputePipeline> computePipelines;
+    final List<Buffer> weightBufferList;
+    final List<Buffer> biasBufferList;
+    final List<ComputePipeline> computePipelineList;
 }

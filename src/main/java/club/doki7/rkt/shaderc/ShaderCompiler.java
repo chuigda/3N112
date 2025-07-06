@@ -3,6 +3,7 @@ package club.doki7.rkt.shaderc;
 import club.doki7.ffm.annotation.EnumType;
 import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.rkt.exc.ShaderCompileException;
+import club.doki7.rkt.util.Assertion;
 import club.doki7.shaderc.Shaderc;
 import club.doki7.shaderc.ShadercUtil;
 import club.doki7.shaderc.enumtype.ShadercShaderKind;
@@ -109,6 +110,15 @@ public final class ShaderCompiler implements AutoCloseable {
                 callbacks.pfnIncludeResultRelease,
                 MemorySegment.NULL
         );
+        if (Assertion.assertionEnabled) {
+            shaderc.compileOptionsAddMacroDefinition(
+                    options,
+                    defensiveMacroName,
+                    defensiveMacroName.size() - 1,
+                    defensiveMacroValue,
+                    defensiveMacroValue.size() - 1
+            );
+        }
 
         return new ShaderCompiler(shaderc, compiler, options);
     }
@@ -136,4 +146,6 @@ public final class ShaderCompiler implements AutoCloseable {
 
     private static final Cleaner cleaner = Cleaner.create();
     private static final BytePtr entryPoint = BytePtr.allocateString(Arena.global(), "main");
+    private static final BytePtr defensiveMacroName = BytePtr.allocateString(Arena.global(), "DEFENSIVE");
+    private static final BytePtr defensiveMacroValue = BytePtr.allocateString(Arena.global(), "1");
 }

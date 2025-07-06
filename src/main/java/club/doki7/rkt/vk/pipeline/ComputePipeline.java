@@ -45,6 +45,7 @@ public final class ComputePipeline implements AutoCloseable {
                 specInfo = VkSpecializationInfo.allocate(arena)
                         .mapEntryCount(specialisation.entries.size())
                         .pMapEntries(entries)
+                        .dataSize(specialisation.data.byteSize())
                         .pData(specialisation.data);
             }
 

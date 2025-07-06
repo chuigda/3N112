@@ -43,30 +43,28 @@ layout(constant_id = 1) const uint ty = 1;
 layout(constant_id = 2) const uint perceptron_count = 1;
 layout(constant_id = 3) const uint input_size = 1;
 layout(constant_id = 4) const uint activation = 0;
-layout(constant_id = 5) const uint max_shared_input_size = 0;
+layout(constant_id = 5) const bool use_shared_memory = false;
 
-layout(local_size_x_id = 0, local_size_y_id = 0) in;
+layout(local_size_x_id = 0, local_size_y_id = 1) in;
 
 layout(set = 0, binding = 0) uniform InferOptions {
     uint input_offset;
     uint batch_size;
 };
-
-layout(set = 1, binding = 0) buffer InputBuffer {
+layout(set = 0, binding = 1) buffer InputBuffer {
     readonly float input_data[];
 };
-
-layout(set = 2, binding = 0) buffer WeightsBuffer {
+layout(set = 0, binding = 2) buffer WeightsBuffer {
     readonly float weights[];
 };
-layout(set = 2, binding = 1) buffer BiasBuffer {
+layout(set = 0, binding = 3) buffer BiasBuffer {
     readonly float bias[];
 };
-layout(set = 2, binding = 2) buffer OutputBuffer {
+layout(set = 0, binding = 4) buffer OutputBuffer {
     writeonly float output_data[];
 };
 
-shared float shared_input_data[max_shared_input_size != 0 ? max_shared_input_size : 1];
+shared float shared_input_data[use_shared_memory ? input_size : 1];
 
 void main() {
     const uint perceptron_index = gl_GlobalInvocationID.x;
@@ -87,9 +85,9 @@ void main() {
     const uint weight_start_index = perceptron_index * input_size;
 
     float sum = bias[perceptron_index];
-    if (max_shared_input_size > 0) {
+    if (use_shared_memory) {
 #ifdef DEFENSIVE
-        if (ty != 1 || input_size > max_shared_input_size) {
+        if (ty != 1) {
             output_data[output_index] = UNIVERSITY_CONSTANT;
             return;
         }
