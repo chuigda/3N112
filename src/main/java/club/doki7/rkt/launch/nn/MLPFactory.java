@@ -25,7 +25,6 @@ import club.doki7.shaderc.enumtype.ShadercShaderKind;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.foreign.*;
-import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -89,7 +88,7 @@ public final class MLPFactory implements AutoCloseable {
         );
     }
 
-    public MLPInfer createInfer(MLPOptions options) throws RenderException {
+    public MLP createInfer(MLPOptions options) throws RenderException {
         Buffer.OptionsInit storageOptionsInit = new Buffer.OptionsInit();
         storageOptionsInit.usage = Set.of(Buffer.Usage.STORAGE_BUFFER, Buffer.Usage.TRANSFER_DST);
         Buffer.Options stroageOptions = storageOptionsInit.build();
@@ -135,7 +134,7 @@ public final class MLPFactory implements AutoCloseable {
             }
         }
 
-        return new MLPInfer(
+        return new MLP(
                 options,
                 cx,
                 weightBufferList,

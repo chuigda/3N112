@@ -6,10 +6,10 @@ import club.doki7.rkt.vk.resc.Buffer;
 
 import java.util.List;
 
-public final class MLPInfer implements AutoCloseable {
+public final class MLP implements AutoCloseable {
     public final MLPOptions options;
 
-    public MLPInfer(
+    public MLP(
             MLPOptions options,
             RenderContext cx,
             List<Buffer> weightBufferList,
@@ -21,6 +21,9 @@ public final class MLPInfer implements AutoCloseable {
         this.weightBufferList = weightBufferList;
         this.biasBufferList = biasBufferList;
         this.computePipelineList = computePipelineList;
+    }
+
+    public void uploadWeights() throws Exception {
     }
 
     @Override

@@ -40,7 +40,7 @@ final class Application implements AutoCloseable {
 
     void applicationStart() throws RenderException, IOException {
         try (MLPFactory factory = new MLPFactory(cx)) {
-            MLPInfer model = factory.createInfer(new MLPOptions(
+            MLP model = factory.createInfer(new MLPOptions(
                     28 * 28,
                     List.of(
                             new MLPOptions.Layer(300, Activation.SIGMOID),
