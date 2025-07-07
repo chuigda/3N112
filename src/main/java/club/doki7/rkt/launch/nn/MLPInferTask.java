@@ -7,10 +7,12 @@ import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.cmd.CommandBuffer;
 import club.doki7.rkt.vk.cmd.CommandPool;
+import club.doki7.rkt.vk.cmd.SubmitInfo;
 import club.doki7.rkt.vk.desc.PushDescriptorSet;
 import club.doki7.rkt.vk.desc.UniformBufferObject;
 import club.doki7.rkt.vk.desc.ShaderStorageBufferObject;
 import club.doki7.rkt.vk.resc.Buffer;
+import club.doki7.rkt.vk.sync.Fence;
 import club.doki7.vulkan.VkConstants;
 import club.doki7.vulkan.bitmask.VkAccessFlags;
 import club.doki7.vulkan.bitmask.VkCommandPoolCreateFlags;
@@ -27,6 +29,7 @@ import java.lang.foreign.StructLayout;
 import java.lang.foreign.ValueLayout;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public final class MLPInferTask implements AutoCloseable {
@@ -126,10 +129,35 @@ public final class MLPInferTask implements AutoCloseable {
         this.cmdBuf = cmdPool.allocCmdBuf(cx, VkCommandBufferLevel.PRIMARY);
 
         preRecordCommandBuffer();
+        this.submitInfo = new SubmitInfo(List.of(cmdBuf), List.of(), List.of(), List.of());
+    }
+
+    public void executeBatch(int batchStart) throws VulkanException {
+        long totalCount = inputBuffer.size / ((long) mlp.options.inputSize * Float.BYTES);
+        long ehtotBatchSize = Math.min(totalCount - batchStart, batchSize);
+        if (ehtotBatchSize <= 0) {
+            throw new IllegalArgumentException("批次大小超出输入数据范围");
+        }
+
+        IntPtr pInferOptionsBuffer = Objects.requireNonNull(IntPtr.checked(inferOptionsBuffer.mapped));
+        IntPtr pLayer0InferOptionsBuffer = Objects.requireNonNull(IntPtr.checked(layer0InferOptionsBuffer.mapped));
+        pInferOptionsBuffer.write(0, 0);
+        pInferOptionsBuffer.write(1, (int) ehtotBatchSize);
+        pLayer0InferOptionsBuffer.write(0, batchStart);
+        pLayer0InferOptionsBuffer.write(1, (int) ehtotBatchSize);
+
+        try (Fence fence = Fence.createLocal(cx)) {
+            if (cx.hasComputeQueue()) {
+                cx.submitCompute(submitInfo, fence);
+            } else {
+                cx.submitGraphics(submitInfo, fence);
+            }
+            cx.waitForFence(fence);
+        }
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         cmdPool.close();
         inferOptionsBuffer.close();
         layer0InferOptionsBuffer.close();
@@ -144,7 +172,7 @@ public final class MLPInferTask implements AutoCloseable {
                         VkPipelineBindPoint.COMPUTE,
                         mlp.computePipelineList.get(i).handle
                 );
-                cx.dCmd.cmdPushDescriptorSet(
+                cx.dCmd.cmdPushDescriptorSetKHR(
                         cmdBuf.handle,
                         VkPipelineBindPoint.COMPUTE,
                         mlp.factory.mlpForwardPipelineLayout.handle,
@@ -200,6 +228,7 @@ public final class MLPInferTask implements AutoCloseable {
     private final List<PushDescriptorSet> descriptorSets;
     private final CommandPool cmdPool;
     private final CommandBuffer cmdBuf;
+    private final SubmitInfo submitInfo;
 
     private static final StructLayout INFER_OPTIONS_LAYOUT = NativeLayout.structLayout(
             ValueLayout.JAVA_INT.withName("input_offset"),

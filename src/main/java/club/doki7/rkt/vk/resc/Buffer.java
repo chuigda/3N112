@@ -160,7 +160,7 @@ public final class Buffer implements AutoCloseable {
 
         public static OptionsInit shaderStorageBufferPreset() {
             OptionsInit init = new OptionsInit();
-            init.usage = Set.of(Usage.STORAGE_BUFFER);
+            init.usage = Set.of(Usage.STORAGE_BUFFER, Usage.TRANSFER_DST);
             init.mapped = false;
             init.coherent = false;
             init.shared = false;

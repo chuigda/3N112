@@ -123,7 +123,7 @@ public final class MLP implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         for (ComputePipeline pipeline : computePipelineList) {
             pipeline.close();
         }

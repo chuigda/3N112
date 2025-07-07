@@ -88,7 +88,7 @@ public final class MLPFactory implements AutoCloseable {
         );
     }
 
-    public MLP createInfer(MLPOptions options) throws RenderException {
+    public MLP createModel(MLPOptions options) throws RenderException {
         Buffer.OptionsInit storageOptionsInit = new Buffer.OptionsInit();
         storageOptionsInit.usage = Set.of(Buffer.Usage.STORAGE_BUFFER, Buffer.Usage.TRANSFER_DST);
         Buffer.Options stroageOptions = storageOptionsInit.build();
