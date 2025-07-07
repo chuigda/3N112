@@ -1,9 +1,11 @@
 package club.doki7.rkt.launch.nn;
 
+import club.doki7.rkt.exc.RenderException;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.pipeline.ComputePipeline;
 import club.doki7.rkt.vk.resc.Buffer;
 
+import java.lang.foreign.MemorySegment;
 import java.util.List;
 
 public final class MLP implements AutoCloseable {
@@ -23,7 +25,28 @@ public final class MLP implements AutoCloseable {
         this.computePipelineList = computePipelineList;
     }
 
-    public void uploadWeights() throws Exception {
+    public void uploadWeights(
+            List<MemorySegment> weightList,
+            List<MemorySegment> biasList
+    ) throws RenderException {
+        if (cx.hasTransferQueue()) {
+            uploadWithTransferQueue(weightList, biasList);
+        } else {
+            uploadWithAffinityQueue(weightList, biasList);
+        }
+    }
+
+    private void uploadWithAffinityQueue(
+            List<MemorySegment> weightList,
+            List<MemorySegment> biasList
+    ) throws RenderException {
+
+    }
+
+    private void uploadWithTransferQueue(
+            List<MemorySegment> weightList,
+            List<MemorySegment> biasList
+    ) throws RenderException {
     }
 
     @Override
