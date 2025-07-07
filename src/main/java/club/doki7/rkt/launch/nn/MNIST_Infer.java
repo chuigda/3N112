@@ -4,7 +4,6 @@ import club.doki7.ffm.library.ILibraryLoader;
 import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.ffm.ptr.FloatPtr;
 import club.doki7.rkt.exc.RenderException;
-import club.doki7.rkt.util.Assertion;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.common.QueueFamily;
@@ -15,13 +14,11 @@ import club.doki7.vulkan.command.VulkanLoader;
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 public final class MNIST_Infer {
