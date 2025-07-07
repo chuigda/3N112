@@ -21,7 +21,7 @@
 ///
 /// 输入数据
 /// - input_data: 输入数据，包含所有批次的输入数据
-///   本批次（vkCmdDispatch）要处理起始数据批次起始由 input_offset 指定
+///   本批次（dispatch）要处理起始数据批次起始由 input_offset 指定
 ///   每一批次共处理 batch_size 组输入数据，每组输入数据的大小为 input_size
 ///   总计为 batch_size * input_size 个 float32
 /// - weights: 所有感知机的权重数据，每个感知机的权重数量为 input_size
@@ -84,6 +84,15 @@ void main() {
         for (uint i = local_id; i < input_size; i += tx) {
             shared_input_data[i] = input_data[input_start_index + i];
         }
+
+        // 有的地方指出这里需要两个分离的屏障，而有的地方则表示 barrier() 已经隐含了
+        // memoryBarrierShared()。
+        //
+        // 从社区的一次讨论来看，这两个屏障应该有不同的语义，但因为误用的人太多了，
+        // glslc 已经会自动为 barrier() 添加 memoryBarrierShared()。保险起见，
+        // 为了避免依赖具体实现，我们还是手动添加 memoryBarrierShared()。
+        //
+        // 参见：https://github.com/KhronosGroup/glslang/issues/205
         barrier();
         memoryBarrierShared();
     }
