@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 public final class MNIST_Infer {
@@ -61,6 +62,9 @@ final class Application implements AutoCloseable {
         byte[] inputData = Files.readAllBytes(Path.of("resc", "nn", "t10k-images.idx3-ubyte.bin"));
         assert inputData.length == MNIST_IMAGE_SIZE * 10_000 + MNIST_IMAGE_FILE_HEADER_SIZE;
 
+        byte[] labelData = Files.readAllBytes(Path.of("resc", "nn", "t10k-labels.idx1-ubyte.bin"));
+        assert labelData.length == 10_000 + MNIST_LABEL_FILE_HEADER_SIZE;
+
         List<MemorySegment> weightList = new ArrayList<>();
         List<MemorySegment> biasList = new ArrayList<>();
         for (int i = 0; i < weightFileNameList.size(); i++) {
@@ -91,18 +95,44 @@ final class Application implements AutoCloseable {
             for (int i = MNIST_IMAGE_FILE_HEADER_SIZE; i < inputData.length; i++) {
                 normalisedInput.write(i - MNIST_IMAGE_FILE_HEADER_SIZE, (inputData[i] & 0xFF) / 255.0f);
             }
-
             Transmission.uploadBuffer(cx, inputBuffer, normalisedInput.segment(), cx.hasComputeQueue()
                     ? QueueFamily.COMPUTE
                     : QueueFamily.GRAPHICS);
 
+            FloatPtr outputMapped = Objects.requireNonNull(FloatPtr.checked(inferTask.outputBufferList.getLast().mapped));
+            assert outputMapped.size() == batchSize * 10;
+            int correctCount = 0;
             for (int i = 0; i < (inputItemCount / MNIST_IMAGE_SIZE); i += batchSize) {
                 inferTask.executeBatch(i);
+
+                for (int outputIdx = 0; outputIdx < batchSize; outputIdx++) {
+                    FloatPtr oneHot = outputMapped.slice(outputIdx * 10, (outputIdx + 1) * 10);
+                    byte actual = max10(oneHot);
+                    byte expected = labelData[MNIST_LABEL_FILE_HEADER_SIZE + i + outputIdx];
+
+                    if (actual == expected) {
+                        correctCount++;
+                    }
+                }
             }
+
+            float accuracy = (float) correctCount / 10_000.0f;
+            logger.info("Accuracy: " + accuracy * 100.0f + "%");
         }
     }
 
-    private void loadWeights() {
+    private byte max10(FloatPtr oneHot) {
+        float maxValue = oneHot.read();
+        byte maxIndex = 0;
+
+        for (byte i = 1; i < 10; i++) {
+            float value = oneHot.read(i);
+            if (value > maxValue) {
+                maxValue = value;
+                maxIndex = i;
+            }
+        }
+        return maxIndex;
     }
 
     private final RenderContext cx;
