@@ -151,7 +151,7 @@ public final class Buffer implements AutoCloseable {
 
         public static OptionsInit stagingBufferPreset() {
             OptionsInit init = new OptionsInit();
-            init.usage = Set.of(Usage.TRANSFER_SRC);
+            init.usage = Set.of(Usage.TRANSFER_SRC, Usage.TRANSFER_DST);
             init.mapped = true;
             init.coherent = false;
             init.shared = false;

@@ -135,6 +135,7 @@ public final class MLPFactory implements AutoCloseable {
         }
 
         return new MLP(
+                this,
                 options,
                 cx,
                 weightBufferList,

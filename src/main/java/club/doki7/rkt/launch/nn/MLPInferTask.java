@@ -1,10 +1,28 @@
 package club.doki7.rkt.launch.nn;
 
 import club.doki7.ffm.NativeLayout;
+import club.doki7.ffm.annotation.EnumType;
+import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.vk.RenderContext;
+import club.doki7.rkt.vk.cmd.CommandBuffer;
+import club.doki7.rkt.vk.cmd.CommandPool;
+import club.doki7.rkt.vk.desc.PushDescriptorSet;
+import club.doki7.rkt.vk.desc.UniformBufferObject;
+import club.doki7.rkt.vk.desc.ShaderStorageBufferObject;
 import club.doki7.rkt.vk.resc.Buffer;
+import club.doki7.vulkan.VkConstants;
+import club.doki7.vulkan.bitmask.VkAccessFlags;
+import club.doki7.vulkan.bitmask.VkCommandPoolCreateFlags;
+import club.doki7.vulkan.bitmask.VkPipelineStageFlags;
+import club.doki7.vulkan.datatype.VkBufferMemoryBarrier;
+import club.doki7.vulkan.datatype.VkCommandBufferBeginInfo;
+import club.doki7.vulkan.datatype.VkDescriptorBufferInfo;
+import club.doki7.vulkan.enumtype.VkCommandBufferLevel;
+import club.doki7.vulkan.enumtype.VkPipelineBindPoint;
+import club.doki7.vulkan.enumtype.VkResult;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.StructLayout;
 import java.lang.foreign.ValueLayout;
 import java.util.ArrayList;
@@ -17,14 +35,14 @@ public final class MLPInferTask implements AutoCloseable {
     public final List<Buffer> outputBufferList;
 
     public MLPInferTask(
-            MLP infer,
+            MLP mlp,
             int batchSize,
             Buffer inputBuffer,
             boolean mappedOutputBuffer,
             boolean mappedHiddenLayerOutputBuffer
     ) throws VulkanException {
-        this.cx = infer.cx;
-        this.infer = infer;
+        this.cx = mlp.cx;
+        this.mlp = mlp;
         this.batchSize = batchSize;
         this.inputBuffer = inputBuffer;
 
@@ -68,9 +86,10 @@ public final class MLPInferTask implements AutoCloseable {
         Buffer.Options hiddenOutputOptions = hiddenOutputOptionsInit.build();
 
         this.outputBufferList = new ArrayList<>();
-        for (int i = 0; i < infer.options.layers.size(); i++) {
-             MLPOptions.Layer layer = infer.options.layers.get(i);
-             Buffer.Options useOptions = i == infer.options.layers.size() - 1
+        this.descriptorSets = new ArrayList<>();
+        for (int i = 0; i < mlp.options.layers.size(); i++) {
+             MLPOptions.Layer layer = mlp.options.layers.get(i);
+             Buffer.Options useOptions = i == mlp.options.layers.size() - 1
                      ? outputOptions
                      : hiddenOutputOptions;
              Buffer outputBuffer = Buffer.create(
@@ -80,23 +99,113 @@ public final class MLPInferTask implements AutoCloseable {
                      useOptions
              );
              outputBufferList.add(outputBuffer);
+
+             Buffer ehtotInferOptionsBuffer = i == 0
+                     ? layer0InferOptionsBuffer
+                     : inferOptionsBuffer;
+             Buffer ehtotInputBuffer = i == 0
+                     ? inputBuffer
+                     : outputBufferList.get(i - 1);
+             descriptorSets.add(PushDescriptorSet.create(
+                     cx,
+                     mlp.factory.mlpForwardSetLayout,
+                     List.of(
+                             UniformBufferObject.create(cx, ehtotInferOptionsBuffer),
+                             ShaderStorageBufferObject.create(cx, ehtotInputBuffer),
+                             ShaderStorageBufferObject.create(cx, mlp.weightBufferList.get(i)),
+                             ShaderStorageBufferObject.create(cx, mlp.biasBufferList.get(i)),
+                             ShaderStorageBufferObject.create(cx, outputBuffer)
+                     )
+             ));
         }
+
+        int queueFamilyIndex = cx.hasComputeQueue()
+                ? cx.dedicatedComputeQueueFamilyIndex
+                : cx.graphicsQueueFamilyIndex;
+        this.cmdPool = CommandPool.create(cx, VkCommandPoolCreateFlags.TRANSIENT, queueFamilyIndex);
+        this.cmdBuf = cmdPool.allocCmdBuf(cx, VkCommandBufferLevel.PRIMARY);
+
+        preRecordCommandBuffer();
     }
 
     @Override
     public void close() throws Exception {
+        cmdPool.close();
         inferOptionsBuffer.close();
         layer0InferOptionsBuffer.close();
     }
 
+    private void preRecordCommandBuffer() throws VulkanException {
+        try (Arena arena = Arena.ofConfined()) {
+            cx.dCmd.beginCommandBuffer(cmdBuf.handle, VkCommandBufferBeginInfo.allocate(arena));
+            for (int i = 0; i < descriptorSets.size(); i++) {
+                cx.dCmd.cmdBindPipeline(
+                        cmdBuf.handle,
+                        VkPipelineBindPoint.COMPUTE,
+                        mlp.computePipelineList.get(i).handle
+                );
+                cx.dCmd.cmdPushDescriptorSet(
+                        cmdBuf.handle,
+                        VkPipelineBindPoint.COMPUTE,
+                        mlp.factory.mlpForwardPipelineLayout.handle,
+                        0,
+                        5,
+                        descriptorSets.get(i).descriptorSetWrites
+                );
+
+                MLPOptions.Layer layer = mlp.options.layers.get(i);
+                cx.dCmd.cmdDispatch(
+                        cmdBuf.handle,
+                        Math.ceilDiv(layer.size, mlp.options.perceptronWorkgroupSize),
+                        batchSize,
+                        1
+                );
+
+                if (i == descriptorSets.size() - 1) {
+                    continue;
+                }
+
+                Buffer outputBuffer = outputBufferList.get(i);
+                VkBufferMemoryBarrier barrier = VkBufferMemoryBarrier.allocate(arena)
+                        .srcAccessMask(VkAccessFlags.SHADER_WRITE)
+                        .dstAccessMask(VkAccessFlags.SHADER_READ)
+                        .srcQueueFamilyIndex(VkConstants.QUEUE_FAMILY_IGNORED)
+                        .dstQueueFamilyIndex(VkConstants.QUEUE_FAMILY_IGNORED)
+                        .buffer(outputBuffer.handle)
+                        .offset(0)
+                        .size(outputBuffer.size);
+                cx.dCmd.cmdPipelineBarrier(
+                        cmdBuf.handle,
+                        VkPipelineStageFlags.COMPUTE_SHADER,
+                        VkPipelineStageFlags.COMPUTE_SHADER,
+                        0x0,
+                        0, null,
+                        1, barrier,
+                        0, null
+                );
+            }
+
+            @EnumType(VkResult.class) int result = cx.dCmd.endCommandBuffer(cmdBuf.handle);
+            if (result != VkResult.SUCCESS) {
+                throw new VulkanException(result, "无法录制 MLP 推理任务所用的命令缓冲");
+            }
+        }
+    }
+
     private final RenderContext cx;
-    private final MLP infer;
+    private final MLP mlp;
 
     private final Buffer inferOptionsBuffer;
     private final Buffer layer0InferOptionsBuffer;
+    private final List<PushDescriptorSet> descriptorSets;
+    private final CommandPool cmdPool;
+    private final CommandBuffer cmdBuf;
 
     private static final StructLayout INFER_OPTIONS_LAYOUT = NativeLayout.structLayout(
             ValueLayout.JAVA_INT.withName("input_offset"),
             ValueLayout.JAVA_INT.withName("batch_size")
     );
+    private static final VkDescriptorBufferInfo INFER_OPTIONS_BUFFER_INFO = VkDescriptorBufferInfo.allocate(Arena.global())
+            .offset(0)
+            .range(INFER_OPTIONS_LAYOUT.byteSize());
 }
