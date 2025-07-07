@@ -26,7 +26,7 @@ public final class MNIST_Infer {
         System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tFT%1$tT] [%4$s] %3$s : %5$s%n");
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] ignored) {
         try (ISharedLibrary libVulkan = VulkanLoader.loadVulkanLibrary();
              ISharedLibrary libVMA = ILibraryLoader.platformLoader().loadLibrary("vma");
              Application app = new Application(libVulkan, libVMA)) {
@@ -56,7 +56,7 @@ final class Application implements AutoCloseable {
                         new MLPOptions.Layer(10, Activation.LINEAR)
                 ),
                 64,
-                true
+                false
         );
 
         byte[] inputData = Files.readAllBytes(Path.of("resc", "nn", "t10k-images.idx3-ubyte.bin"));
@@ -117,7 +117,7 @@ final class Application implements AutoCloseable {
             }
 
             float accuracy = (float) correctCount / 10_000.0f;
-            logger.info("Accuracy: " + accuracy * 100.0f + "%");
+            logger.info("推理准确率: " + accuracy * 100.0f + "%");
         }
     }
 
@@ -136,9 +136,6 @@ final class Application implements AutoCloseable {
     }
 
     private final RenderContext cx;
-
-    private Buffer[] weightsBuffer;
-    private Buffer[] biasesBuffer;
 
     private static final Logger logger = Logger.getLogger(Application.class.getName());
     private static final List<String> weightFileNameList = List.of(

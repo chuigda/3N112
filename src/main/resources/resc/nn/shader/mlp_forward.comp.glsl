@@ -12,10 +12,7 @@
 /// - perceptron_count: 本层感知机的数量
 /// - input_size: 每个感知机接受的输入数据大小
 /// - activation: 激活函数类型，参见 include/activ.glsl
-/// - max_shared_input_size: 使用共享内存优化时，共享内存中最多能存储的输入数据大小
-///   - 这个值设置为 0 时，表示不使用共享内存优化
-///   - 这个值设置为非 0 时，运行时通过 uniform 传入的 input_size 不能大于这个值，且
-///     ty 必须设置为 1
+/// - use_shared_memory: 是否使用共享内存优化
 ///
 /// 配置常量
 /// - 推理选项（InferOptions）
