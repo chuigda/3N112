@@ -184,7 +184,7 @@ public final class MLPInferTask implements AutoCloseable {
                 MLPOptions.Layer layer = mlp.options.layers.get(i);
                 cx.dCmd.cmdDispatch(
                         cmdBuf.handle,
-                        Math.ceilDiv(layer.size, mlp.options.perceptronWorkgroupSize),
+                        Math.ceilDiv(layer.size, layer.perceptronWorkgroupSize),
                         batchSize,
                         1
                 );

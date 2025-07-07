@@ -99,12 +99,12 @@ public final class MLPFactory implements AutoCloseable {
 
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment specSegment = arena.allocate(MLP_FORWARD_SHADER_SPEC_LAYOUT);
-            specSegment.set(ValueLayout.JAVA_INT, OFFSET_tx, options.perceptronWorkgroupSize);
             specSegment.set(ValueLayout.JAVA_INT, OFFSET_ty, 1);
             specSegment.set(ValueLayout.JAVA_BOOLEAN, OFFSET_useSharedMemory, options.useSharedMemory);
 
             int inputSize = options.inputSize;
             for (MLPOptions.Layer layer : options.layers) {
+                specSegment.set(ValueLayout.JAVA_INT, OFFSET_tx, layer.perceptronWorkgroupSize);
                 specSegment.set(ValueLayout.JAVA_INT, OFFSET_perceptronCount, layer.size);
                 specSegment.set(ValueLayout.JAVA_INT, OFFSET_inputSize, inputSize);
                 specSegment.set(ValueLayout.JAVA_INT, OFFSET_activation, layer.activ.value);
@@ -131,6 +131,8 @@ public final class MLPFactory implements AutoCloseable {
                         false,
                         stroageOptions
                 ));
+
+                inputSize = layer.size;
             }
         }
 

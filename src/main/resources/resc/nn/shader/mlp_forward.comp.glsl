@@ -67,21 +67,11 @@ void main() {
     const uint perceptron_index = gl_GlobalInvocationID.x;
     const uint batch_index = gl_GlobalInvocationID.y;
 
-    if (perceptron_index >= perceptron_count || batch_index >= batch_size) {
-        return;
-    }
-
-    const uint output_index = batch_index * perceptron_count + perceptron_index;
-#ifdef DEFENSIVE
-    if (output_index >= output_data.length()) {
-        return;
-    }
-#endif
-
     const uint input_start_index = (input_offset + batch_index) * input_size;
     const uint weight_start_index = perceptron_index * input_size;
+    const uint output_index = batch_index * perceptron_count + perceptron_index;
 
-    float sum = bias[perceptron_index];
+    // 即使这个 thread 不参与最终的计算，它也需要参与协同加载
     if (use_shared_memory) {
 #ifdef DEFENSIVE
         if (ty != 1) {
@@ -89,16 +79,27 @@ void main() {
             return;
         }
 #endif
-        const uint local_id = gl_LocalInvocationID.x;
-        const uint workgroup_size = gl_WorkGroupSize.x;
 
-        for (uint i = local_id; i < input_size; i += workgroup_size) {
+        const uint local_id = gl_LocalInvocationID.x;
+        for (uint i = local_id; i < input_size; i += tx) {
             shared_input_data[i] = input_data[input_start_index + i];
         }
-
         barrier();
         memoryBarrierShared();
+    }
 
+    if (perceptron_index >= perceptron_count || batch_index >= batch_size) {
+        return;
+    }
+
+#ifdef DEFENSIVE
+    if (output_index >= output_data.length()) {
+        return;
+    }
+#endif
+
+    float sum = bias[perceptron_index];
+    if (use_shared_memory) {
         for (uint i = 0; i < input_size; ++i) {
             sum += shared_input_data[i] * weights[weight_start_index + i];
         }

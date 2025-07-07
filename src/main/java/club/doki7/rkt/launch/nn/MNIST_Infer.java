@@ -4,6 +4,7 @@ import club.doki7.ffm.library.ILibraryLoader;
 import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.ffm.ptr.FloatPtr;
 import club.doki7.rkt.exc.RenderException;
+import club.doki7.rkt.util.Assertion;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.common.QueueFamily;
@@ -14,11 +15,13 @@ import club.doki7.vulkan.command.VulkanLoader;
 import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 public final class MNIST_Infer {
@@ -51,18 +54,17 @@ final class Application implements AutoCloseable {
         MLPOptions options = new MLPOptions(
                 MNIST_IMAGE_SIZE,
                 List.of(
-                        new MLPOptions.Layer(300, Activation.SIGMOID),
-                        new MLPOptions.Layer(100, Activation.SIGMOID),
-                        new MLPOptions.Layer(10, Activation.LINEAR)
+                        new MLPOptions.Layer(300, Activation.SIGMOID, 32),
+                        new MLPOptions.Layer(100, Activation.SIGMOID, 32),
+                        new MLPOptions.Layer(10, Activation.LINEAR, 2)
                 ),
-                64,
-                false
+                true
         );
 
-        byte[] inputData = Files.readAllBytes(Path.of("resc", "nn", "t10k-images.idx3-ubyte.bin"));
+        byte[] inputData = Files.readAllBytes(Path.of("resc", "nn", "t10k-images-idx3-ubyte.bin"));
         assert inputData.length == MNIST_IMAGE_SIZE * 10_000 + MNIST_IMAGE_FILE_HEADER_SIZE;
 
-        byte[] labelData = Files.readAllBytes(Path.of("resc", "nn", "t10k-labels.idx1-ubyte.bin"));
+        byte[] labelData = Files.readAllBytes(Path.of("resc", "nn", "t10k-labels-idx1-ubyte.bin"));
         assert labelData.length == 10_000 + MNIST_LABEL_FILE_HEADER_SIZE;
 
         List<MemorySegment> weightList = new ArrayList<>();
@@ -83,7 +85,7 @@ final class Application implements AutoCloseable {
         long inputItemCount = inputData.length - MNIST_IMAGE_FILE_HEADER_SIZE;
         long inputBufferSize = inputItemCount * Float.BYTES;
 
-        int batchSize = 1000;
+        final int batchSize = 1000;
         try (MLPFactory factory = new MLPFactory(cx);
              MLP model = factory.createModel(options);
              Buffer inputBuffer = Buffer.create(cx, inputBufferSize, false, inputBufferOptions);
@@ -102,13 +104,17 @@ final class Application implements AutoCloseable {
             FloatPtr outputMapped = Objects.requireNonNull(FloatPtr.checked(inferTask.outputBufferList.getLast().mapped));
             assert outputMapped.size() == batchSize * 10;
             int correctCount = 0;
-            for (int i = 0; i < (inputItemCount / MNIST_IMAGE_SIZE); i += batchSize) {
-                inferTask.executeBatch(i);
+            for (int batchIdx = 0; batchIdx < 10_000; batchIdx += batchSize) {
+                long startTime = System.nanoTime();
+                inferTask.executeBatch(batchIdx);
+                long endTime = System.nanoTime();
+
+                logger.info("批次 " + (batchIdx / batchSize + 1) + " 推理耗时: " + (endTime - startTime) / 1000_000 + " ms");
 
                 for (int outputIdx = 0; outputIdx < batchSize; outputIdx++) {
                     FloatPtr oneHot = outputMapped.slice(outputIdx * 10, (outputIdx + 1) * 10);
                     byte actual = max10(oneHot);
-                    byte expected = labelData[MNIST_LABEL_FILE_HEADER_SIZE + i + outputIdx];
+                    byte expected = labelData[MNIST_LABEL_FILE_HEADER_SIZE + batchIdx + outputIdx];
 
                     if (actual == expected) {
                         correctCount++;
