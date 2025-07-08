@@ -6,12 +6,14 @@ import club.doki7.ffm.library.ILibraryLoader;
 import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.rkt.exc.RenderException;
+import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.shaderc.ShaderCompiler;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.common.ShaderStage;
 import club.doki7.rkt.vk.desc.DescriptorKind;
 import club.doki7.rkt.vk.desc.DescriptorSetLayout;
 import club.doki7.rkt.vk.desc.DescriptorSetLayoutBinding;
+import club.doki7.rkt.vk.desc.PushConstantRange;
 import club.doki7.rkt.vk.pipeline.ComputePipeline;
 import club.doki7.rkt.vk.pipeline.PipelineLayout;
 import club.doki7.rkt.vk.pipeline.ShaderModule;
@@ -38,54 +40,33 @@ public final class MLPFactory implements AutoCloseable {
                 MLPFactory::rescDirResolve
         );
 
-        String mlpForwardShaderCode;
-        try (InputStream stream = MLPFactory.class.getResourceAsStream("/resc/nn/shader/mlp_forward.comp.glsl")) {
-            if (stream == null) {
-                throw new RenderException("找不到 MLP 前向传播着色器文件 /resc/nn/shader/mlp_forward.comp.glsl");
-            }
-            mlpForwardShaderCode = new String(stream.readAllBytes());
-        } catch (IOException e) {
-            throw new RenderException("找不到 MLP 前向传播着色器文件 /resc/nn/shader/mlp_forward.comp.glsl");
-        }
+        mlpForwardSetLayout = createForwardSetLayout();
+        mlpForwardPipelineLayout = PipelineLayout.create(cx, List.of(mlpForwardSetLayout), List.of());
+        mlpForwardModule = createShaderModule("mlp_forward.comp.glsl");
 
-        try (Arena arena = Arena.ofConfined()) {
-            BytePtr spv = shaderCompiler.compileIntoSPV(
-                    arena,
-                    "mlp_forward.comp.glsl",
-                    mlpForwardShaderCode,
-                    ShadercShaderKind.COMPUTE_SHADER
-            );
-            mlpForwardModule = ShaderModule.create(cx, spv);
-        }
-
-        mlpForwardSetLayout = DescriptorSetLayout.create(cx, List.of(
-                // layout(set = 0, binding = 0) uniform InferOptions {
-                //     uint input_offset;
-                //     uint batch_size;
-                // };
-                new DescriptorSetLayoutBinding(DescriptorKind.UNIFORM_BUFFER, ShaderStage.COMPUTE),
-                // layout(set = 0, binding = 1) buffer InputBuffer {
-                //     readonly float input_data[];
-                // };
-                new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE),
-                // layout(set = 0, binding = 2) buffer WeightsBuffer {
-                //     readonly float weights[];
-                // };
-                new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE),
-                // layout(set = 0, binding = 3) buffer BiasBuffer {
-                //     readonly float bias[];
-                // };
-                new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE),
-                // layout(set = 0, binding = 4) buffer OutputBuffer {
-                //     writeonly float output_data[];
-                // };
-                new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE)
-        ), true);
-        mlpForwardPipelineLayout = PipelineLayout.create(
+        mlpWeightPrewarmSetLayout = createWeightPrewarmSetLayout();
+        mlpWeightPrewarmPipelineLayout = PipelineLayout.create(
                 cx,
-                List.of(mlpForwardSetLayout),
-                List.of()
+                List.of(mlpWeightPrewarmSetLayout),
+                // layout(push_constant) uniform PushConstants {
+                //     float seed;
+                // };
+                List.of(new PushConstantRange(Float.BYTES, Set.of(ShaderStage.COMPUTE)))
         );
+        mlpWeightPrewarmModule = createShaderModule("mlp_weight_prewarm.comp.glsl");
+
+        mlpErrorSetLayout = createErrorSetLayout();
+        mlpErrorPipelineLayout = PipelineLayout.create(cx, List.of(mlpErrorSetLayout), List.of());
+        mlpErrorMSEModule = createShaderModule("mlp_error_mse.comp.glsl");
+        mlpErrorCrossEntropyModule = createShaderModule("mlp_error_cross_entropy.comp.glsl");
+
+        mlpUpdateWeightsSetLayout = createUpdateWeightsSetLayout();
+        mlpUpdateWeightsPipelineLayout = PipelineLayout.create(cx, List.of(mlpUpdateWeightsSetLayout), List.of());
+        mlpUpdateWeightsModule = createShaderModule("mlp_update_weights.comp.glsl");
+
+        mlpBackpropSetLayout = createBackpropSetLayout();
+        mlpBackpropPipelineLayout = PipelineLayout.create(cx, List.of(mlpBackpropSetLayout), List.of());
+        mlpBackpropModule = createShaderModule("mlp_backprop.comp.glsl");
     }
 
     public MLP createModel(MLPOptions options) throws RenderException {
@@ -98,22 +79,22 @@ public final class MLPFactory implements AutoCloseable {
         List<ComputePipeline> computePipelineList = new ArrayList<>();
 
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment specSegment = arena.allocate(MLP_FORWARD_SHADER_SPEC_LAYOUT);
-            specSegment.set(ValueLayout.JAVA_INT, OFFSET_ty, 1);
-            specSegment.set(ValueLayout.JAVA_BOOLEAN, OFFSET_useSharedMemory, options.useSharedMemory);
+            MemorySegment specSegment = arena.allocate(ForwardShaderSpec.LAYOUT);
+            specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_ty, 1);
+            specSegment.set(ValueLayout.JAVA_BOOLEAN, ForwardShaderSpec.OFFSET_useSharedMemory, options.useSharedMemory);
 
             int inputSize = options.inputSize;
             for (MLPOptions.Layer layer : options.layers) {
-                specSegment.set(ValueLayout.JAVA_INT, OFFSET_tx, layer.perceptronWorkgroupSize);
-                specSegment.set(ValueLayout.JAVA_INT, OFFSET_perceptronCount, layer.size);
-                specSegment.set(ValueLayout.JAVA_INT, OFFSET_inputSize, inputSize);
-                specSegment.set(ValueLayout.JAVA_INT, OFFSET_activation, layer.activ.value);
+                specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_tx, layer.perceptronWorkgroupSize);
+                specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_perceptronCount, layer.size);
+                specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_inputSize, inputSize);
+                specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_activation, layer.activ.value);
 
                 computePipelineList.add(ComputePipeline.create(
                         cx,
                         mlpForwardPipelineLayout,
                         mlpForwardModule,
-                        new ShaderSpecialisation(SPEC_ENTRIES, specSegment)
+                        new ShaderSpecialisation(ForwardShaderSpec.SPEC_ENTRIES, specSegment)
                 ));
 
                 int weightBufferSize = inputSize * layer.size * Float.BYTES;
@@ -148,21 +129,190 @@ public final class MLPFactory implements AutoCloseable {
 
     @Override
     public void close() {
+        mlpBackpropModule.close();
+        mlpBackpropPipelineLayout.close();
+        mlpBackpropSetLayout.close();
+
+        mlpUpdateWeightsModule.close();
+        mlpUpdateWeightsPipelineLayout.close();
+        mlpUpdateWeightsSetLayout.close();
+
+        mlpErrorCrossEntropyModule.close();
+        mlpErrorMSEModule.close();
+        mlpErrorPipelineLayout.close();
+        mlpErrorSetLayout.close();
+
+        mlpWeightPrewarmModule.close();
+        mlpWeightPrewarmPipelineLayout.close();
+        mlpWeightPrewarmSetLayout.close();
+
+        mlpForwardModule.close();
         mlpForwardPipelineLayout.close();
         mlpForwardSetLayout.close();
 
-        mlpForwardModule.close();
         shaderCompiler.close();
         libShaderc.close();
+    }
+
+    private ShaderModule createShaderModule(String shaderName) throws RenderException {
+        String shaderCode;
+        try (InputStream stream = MLPFactory.class.getResourceAsStream("/resc/nn/shader/" + shaderName)) {
+            if (stream == null) {
+                throw new RenderException("无法读取着色器文件: " + shaderName);
+            }
+            shaderCode = new String(stream.readAllBytes());
+        } catch (IOException e) {
+            throw new RenderException("无法读取着色器文件: " + shaderName);
+        }
+
+        try (Arena arena = Arena.ofConfined()) {
+            BytePtr spv = shaderCompiler.compileIntoSPV(
+                    arena,
+                    shaderName,
+                    shaderCode,
+                    ShadercShaderKind.COMPUTE_SHADER
+            );
+            return ShaderModule.create(cx, spv);
+        }
+    }
+
+    private DescriptorSetLayout createForwardSetLayout() throws VulkanException {
+        return DescriptorSetLayout.create(cx, List.of(
+                // layout(set = 0, binding = 0) uniform InferOptions {
+                //     uint input_offset;
+                //     uint batch_size;
+                // };
+                UBO,
+                // layout(set = 0, binding = 1) buffer InputBuffer {
+                //     readonly float input_data[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 2) buffer WeightsBuffer {
+                //     readonly float weights[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 3) buffer BiasBuffer {
+                //     readonly float bias[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 4) buffer OutputBuffer {
+                //     writeonly float output_data[];
+                // };
+                SSBO
+        ), true);
+    }
+
+    private DescriptorSetLayout createWeightPrewarmSetLayout() throws VulkanException {
+        return DescriptorSetLayout.create(cx, List.of(
+                // layout(set = 0, binding = 0) buffer WeightsBuffer {
+                //     writeonly float weights[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 1) buffer BiasBuffer {
+                //     writeonly float bias[];
+                // };
+                SSBO
+        ), true);
+    }
+
+    private DescriptorSetLayout createErrorSetLayout() throws VulkanException {
+        return DescriptorSetLayout.create(cx, List.of(
+                // layout(set = 0, binding = 0) uniform InferOptions {
+                //     uint input_offset;
+                //     uint batch_size;
+                // };
+                UBO,
+                // layout(set = 0, binding = 1) buffer OutputBuffer {
+                //     readonly float output_data[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 2) buffer LabelBuffer {
+                //     readonly uint label_data[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 3) buffer GradientBuffer {
+                //     writeonly float gradient_data[];
+                // };
+                SSBO
+        ), true);
+    }
+
+    private DescriptorSetLayout createUpdateWeightsSetLayout() throws VulkanException {
+        return DescriptorSetLayout.create(cx, List.of(
+                // layout(set = 0, binding = 0) uniform UpdateOptions {
+                //     float learning_rate;
+                //     uint batch_size;
+                // };
+                UBO,
+                // layout(set = 0, binding = 1) buffer InputBuffer {
+                //     readonly float input_data[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 2) buffer GradientBuffer {
+                //     readonly float gradient_data[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 3) buffer WeightsBuffer {
+                //     float weights[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 4) buffer BiasesBuffer {
+                //     float biases[];
+                // };
+                SSBO
+        ), true);
+    }
+
+    private DescriptorSetLayout createBackpropSetLayout() throws VulkanException {
+        return DescriptorSetLayout.create(cx, List.of(
+                // layout(set = 0, binding = 0) uniform InferOptions {
+                //     uint input_offset;
+                //     uint batch_size;
+                // };
+                UBO,
+                // layout(set = 0, binding = 1) buffer NextLayerGradientBuffer {
+                //     readonly float next_layer_gradient_data[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 2) buffer NextLayerWeightsBuffer {
+                //     readonly float next_layer_weights_data[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 3) buffer OutputBuffer {
+                //     readonly float current_layer_output_data[];
+                // };
+                SSBO,
+                // layout(set = 0, binding = 4) buffer GradientBuffer {
+                //     writeonly float gradient_data[];
+                // };
+                SSBO
+        ), true);
     }
 
     private final RenderContext cx;
     private final ISharedLibrary libShaderc;
     private final ShaderCompiler shaderCompiler;
 
-    final ShaderModule mlpForwardModule;
     final DescriptorSetLayout mlpForwardSetLayout;
     final PipelineLayout mlpForwardPipelineLayout;
+    final ShaderModule mlpForwardModule;
+
+    final DescriptorSetLayout mlpWeightPrewarmSetLayout;
+    final PipelineLayout mlpWeightPrewarmPipelineLayout;
+    final ShaderModule mlpWeightPrewarmModule;
+
+    final DescriptorSetLayout mlpErrorSetLayout;
+    final PipelineLayout mlpErrorPipelineLayout;
+    final ShaderModule mlpErrorMSEModule;
+    final ShaderModule mlpErrorCrossEntropyModule;
+
+    final DescriptorSetLayout mlpUpdateWeightsSetLayout;
+    final PipelineLayout mlpUpdateWeightsPipelineLayout;
+    final ShaderModule mlpUpdateWeightsModule;
+
+    final DescriptorSetLayout mlpBackpropSetLayout;
+    final PipelineLayout mlpBackpropPipelineLayout;
+    final ShaderModule mlpBackpropModule;
 
     private static ShadercUtil.IncludeResult rescDirResolve(
             String requestedSource,
@@ -179,35 +329,40 @@ public final class MLPFactory implements AutoCloseable {
         }
     }
 
-    private static final StructLayout MLP_FORWARD_SHADER_SPEC_LAYOUT = NativeLayout.structLayout(
-            ValueLayout.JAVA_INT.withName("tx"), // const uint tx
-            ValueLayout.JAVA_INT.withName("ty"), // const uint ty
-            ValueLayout.JAVA_INT.withName("perceptron_count"), // const uint perceptron_count
-            ValueLayout.JAVA_INT.withName("input_size"), // const uint input_size
-            ValueLayout.JAVA_INT.withName("activation"), // const uint activation
-            ValueLayout.JAVA_BOOLEAN.withName("use_shared_memory")  // const boolean use_shared_memory
-    );
+    private static final DescriptorSetLayoutBinding UBO = new DescriptorSetLayoutBinding(DescriptorKind.UNIFORM_BUFFER, ShaderStage.COMPUTE);
+    private static final DescriptorSetLayoutBinding SSBO = new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE);
 
-    private static final MemoryLayout.PathElement PATH_tx = MemoryLayout.PathElement.groupElement("tx");
-    private static final MemoryLayout.PathElement PATH_ty = MemoryLayout.PathElement.groupElement("ty");
-    private static final MemoryLayout.PathElement PATH_perceptronCount = MemoryLayout.PathElement.groupElement("perceptron_count");
-    private static final MemoryLayout.PathElement PATH_inputSize = MemoryLayout.PathElement.groupElement("input_size");
-    private static final MemoryLayout.PathElement PATH_activation = MemoryLayout.PathElement.groupElement("activation");
-    private static final MemoryLayout.PathElement PATH_useSharedMemory = MemoryLayout.PathElement.groupElement("use_shared_memory");
+    static final class ForwardShaderSpec {
+        static final StructLayout LAYOUT = NativeLayout.structLayout(
+                ValueLayout.JAVA_INT.withName("tx"), // const uint tx
+                ValueLayout.JAVA_INT.withName("ty"), // const uint ty
+                ValueLayout.JAVA_INT.withName("perceptron_count"), // const uint perceptron_count
+                ValueLayout.JAVA_INT.withName("input_size"), // const uint input_size
+                ValueLayout.JAVA_INT.withName("activation"), // const uint activation
+                ValueLayout.JAVA_BOOLEAN.withName("use_shared_memory")  // const boolean use_shared_memory
+        );
 
-    private static final int OFFSET_tx = (int) MLP_FORWARD_SHADER_SPEC_LAYOUT.byteOffset(PATH_tx);
-    private static final int OFFSET_ty = (int) MLP_FORWARD_SHADER_SPEC_LAYOUT.byteOffset(PATH_ty);
-    private static final int OFFSET_perceptronCount = (int) MLP_FORWARD_SHADER_SPEC_LAYOUT.byteOffset(PATH_perceptronCount);
-    private static final int OFFSET_inputSize = (int) MLP_FORWARD_SHADER_SPEC_LAYOUT.byteOffset(PATH_inputSize);
-    private static final int OFFSET_activation = (int) MLP_FORWARD_SHADER_SPEC_LAYOUT.byteOffset(PATH_activation);
-    private static final int OFFSET_useSharedMemory = (int) MLP_FORWARD_SHADER_SPEC_LAYOUT.byteOffset(PATH_useSharedMemory);
+        static final MemoryLayout.PathElement PATH_tx = MemoryLayout.PathElement.groupElement("tx");
+        static final MemoryLayout.PathElement PATH_ty = MemoryLayout.PathElement.groupElement("ty");
+        static final MemoryLayout.PathElement PATH_perceptronCount = MemoryLayout.PathElement.groupElement("perceptron_count");
+        static final MemoryLayout.PathElement PATH_inputSize = MemoryLayout.PathElement.groupElement("input_size");
+        static final MemoryLayout.PathElement PATH_activation = MemoryLayout.PathElement.groupElement("activation");
+        static final MemoryLayout.PathElement PATH_useSharedMemory = MemoryLayout.PathElement.groupElement("use_shared_memory");
 
-    private static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
-            new ShaderSpecialisation.Entry(0, OFFSET_tx, Integer.BYTES),
-            new ShaderSpecialisation.Entry(1, OFFSET_ty, Integer.BYTES),
-            new ShaderSpecialisation.Entry(2, OFFSET_perceptronCount, Integer.BYTES),
-            new ShaderSpecialisation.Entry(3, OFFSET_inputSize, Integer.BYTES),
-            new ShaderSpecialisation.Entry(4, OFFSET_activation, Integer.BYTES),
-            new ShaderSpecialisation.Entry(5, OFFSET_useSharedMemory, Integer.BYTES)
-    );
+        static final int OFFSET_tx = (int) LAYOUT.byteOffset(PATH_tx);
+        static final int OFFSET_ty = (int) LAYOUT.byteOffset(PATH_ty);
+        static final int OFFSET_perceptronCount = (int) LAYOUT.byteOffset(PATH_perceptronCount);
+        static final int OFFSET_inputSize = (int) LAYOUT.byteOffset(PATH_inputSize);
+        static final int OFFSET_activation = (int) LAYOUT.byteOffset(PATH_activation);
+        static final int OFFSET_useSharedMemory = (int) LAYOUT.byteOffset(PATH_useSharedMemory);
+
+        static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
+                new ShaderSpecialisation.Entry(0, ForwardShaderSpec.OFFSET_tx, Integer.BYTES),
+                new ShaderSpecialisation.Entry(1, ForwardShaderSpec.OFFSET_ty, Integer.BYTES),
+                new ShaderSpecialisation.Entry(2, ForwardShaderSpec.OFFSET_perceptronCount, Integer.BYTES),
+                new ShaderSpecialisation.Entry(3, ForwardShaderSpec.OFFSET_inputSize, Integer.BYTES),
+                new ShaderSpecialisation.Entry(4, ForwardShaderSpec.OFFSET_activation, Integer.BYTES),
+                new ShaderSpecialisation.Entry(5, ForwardShaderSpec.OFFSET_useSharedMemory, Integer.BYTES)
+        );
+    }
 }

@@ -50,8 +50,8 @@ layout(set = 0, binding = 1) buffer NextLayerGradientBuffer {
 layout(set = 0, binding = 2) buffer NextLayerWeightsBuffer {
     readonly float next_layer_weights_data[];
 };
-layout(set = 0, binding = 3) buffer CurrentLayerOutputBuffer {
-    readonly float current_layer_output_data[];
+layout(set = 0, binding = 3) buffer OutputBuffer {
+    readonly float output_data[];
 };
 layout(set = 0, binding = 4) buffer GradientBuffer {
     writeonly float gradient_data[];
@@ -76,7 +76,7 @@ void main() {
     }
 
     const uint output_index = sample_index * perceptron_count + current_perceptron_index;
-    const float output_value = current_layer_output_data[output_index];
+    const float output_value = output_data[output_index];
     float deriv;
     ACTIVATION_DERIV(activation, output_value, deriv);
 

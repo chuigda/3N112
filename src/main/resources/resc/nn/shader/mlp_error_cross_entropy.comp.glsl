@@ -46,8 +46,8 @@ layout(set = 0, binding = 0) uniform InferOptions {
 layout(set = 0, binding = 1) buffer OutputBuffer {
     readonly float output_data[];
 };
-layout(set = 0, binding = 2) buffer ExpectedOutputBuffer {
-    readonly uint expected_output_data[];
+layout(set = 0, binding = 2) buffer LabelBuffer {
+    readonly uint label_data[];
 };
 layout(set = 0, binding = 3) buffer GradientBuffer {
     writeonly float gradient_data[];
@@ -59,8 +59,8 @@ void main() {
         return;
     }
 
-    const uint expected_output_start_index = input_offset + sample_index;
-    const uint expected_value = expected_output_data[expected_output_start_index];
+    const uint label_start_index = input_offset + sample_index;
+    const uint label = label_data[label_start_index];
 
     const uint output_start_index = sample_index * perceptron_count;
     const uint gradient_start_index = output_start_index;
@@ -89,7 +89,7 @@ void main() {
         const float exp_value = output_exp[i];
         const float softmax_value = exp_value / sum_exp;
 
-        const float gradient = softmax_value - (i == expected_value ? 1.0 : 0.0);
+        const float gradient = softmax_value - (i == label ? 1.0 : 0.0);
         gradient_data[gradient_start_index + i] = gradient;
     }
 }
