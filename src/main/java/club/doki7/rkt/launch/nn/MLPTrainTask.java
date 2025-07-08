@@ -77,10 +77,11 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
 
         Buffer.OptionsInit optionsInit = new Buffer.OptionsInit();
         optionsInit.usage = Set.of(Buffer.Usage.STORAGE_BUFFER);
+        Buffer.Options storageOnlyOptions = optionsInit.build();
+
+        optionsInit.usage = Set.of(Buffer.Usage.UNIFORM_BUFFER);
         optionsInit.mapped = true;
         optionsInit.coherent = true;
-        Buffer.Options storageOnlyOptions = optionsInit.build();
-        optionsInit.usage = Set.of(Buffer.Usage.UNIFORM_BUFFER);
         Buffer.Options uniformOptions = optionsInit.build();
 
         this.updateOptionsBuffer = Buffer.create(
@@ -371,6 +372,8 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
             // endregion
 
             // region update the weights and biases
+            int inputSize = mlp.options.inputSize;
+            int inputPerceptronWorkgroupSize = mlp.options.layers.getFirst().perceptronWorkgroupSize;
             for (int i = 0; i < mlp.options.layers.size(); i++) {
                 MLPOptions.Layer layer = mlp.options.layers.get(i);
 
@@ -389,10 +392,13 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
                 );
                 cx.dCmd.cmdDispatch(
                         cmdBuf.handle,
+                        Math.ceilDiv(inputSize, inputPerceptronWorkgroupSize),
                         Math.ceilDiv(layer.size, layer.perceptronWorkgroupSize),
-                        batchSize,
                         1
                 );
+
+                inputSize = layer.size;
+                inputPerceptronWorkgroupSize = layer.perceptronWorkgroupSize;
             }
             // endregion
 

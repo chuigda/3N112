@@ -90,6 +90,7 @@ public final class MLPFactory implements AutoCloseable {
             updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_ty, 1);
 
             int inputSize = options.inputSize;
+            int inputPerceptronWorkgroupSize = options.layers.getFirst().perceptronWorkgroupSize;
             for (int i = 0; i < options.layers.size(); i++) {
                 MLPOptions.Layer layer = options.layers.get(i);
 
@@ -113,7 +114,8 @@ public final class MLPFactory implements AutoCloseable {
                         new ShaderSpecialisation(WeightPrewarmShaderSpec.SPEC_ENTRIES, forwardSpec)
                 ));
 
-                updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_tx, layer.perceptronWorkgroupSize);
+                updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_tx, inputPerceptronWorkgroupSize);
+                updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_ty, layer.perceptronWorkgroupSize);
                 updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_perceptronCount, layer.size);
                 updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_inputSize, inputSize);
 
@@ -159,6 +161,7 @@ public final class MLPFactory implements AutoCloseable {
                 ));
 
                 inputSize = layer.size;
+                inputPerceptronWorkgroupSize = layer.perceptronWorkgroupSize;
             }
         }
 
@@ -375,16 +378,6 @@ public final class MLPFactory implements AutoCloseable {
             String content = new String(inputStream.readAllBytes());
             return new ShadercUtil.IncludeResult(requestedSource, content);
         }
-    }
-
-    private static int round2WorkgroupSize(int problemSize) {
-        int[] workgroupSizes = { 2, 4, 8, 16, 32, 64 };
-        for (int size : workgroupSizes) {
-            if (problemSize % size > size / 2) {
-                return problemSize / size;
-            }
-        }
-        return 1;
     }
 
     private static final DescriptorSetLayoutBinding UBO = new DescriptorSetLayoutBinding(DescriptorKind.UNIFORM_BUFFER, ShaderStage.COMPUTE);
