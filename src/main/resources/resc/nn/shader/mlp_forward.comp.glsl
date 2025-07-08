@@ -1,5 +1,11 @@
 /// 多层感知机（MLP）前向传播算法
 ///
+/// ## 线程定义
+///
+/// 每个线程处理 1 个感知机对 1 个输入样本的前向传播计算
+/// - gl_GlobalInvocationID.x: 感知机索引
+/// - gl_GlobalInvocationID.y: 样本索引
+///
 /// ## 参数定义
 ///
 /// 宏
@@ -16,7 +22,7 @@
 ///
 /// 配置常量
 /// - 推理选项（InferOptions）
-///   - input_offset: 输入数据的偏移量，指定从输入数据（input_data）的哪个位置开始处理
+///   - input_offset: 输入数据的偏移量，指定从输入数据（input_data）的哪个样本开始处理
 ///   - batch_size: 本批次处理的数据组数
 ///
 /// 输入数据
@@ -65,11 +71,11 @@ shared float shared_input_data[use_shared_memory ? input_size : 1];
 
 void main() {
     const uint perceptron_index = gl_GlobalInvocationID.x;
-    const uint batch_index = gl_GlobalInvocationID.y;
+    const uint sample_index = gl_GlobalInvocationID.y;
 
-    const uint input_start_index = (input_offset + batch_index) * input_size;
+    const uint input_start_index = (input_offset + sample_index) * input_size;
     const uint weight_start_index = perceptron_index * input_size;
-    const uint output_index = batch_index * perceptron_count + perceptron_index;
+    const uint output_index = sample_index * perceptron_count + perceptron_index;
 
     // 即使这个 thread 不参与最终的计算，它也需要参与协同加载
     if (use_shared_memory) {
@@ -97,7 +103,7 @@ void main() {
         memoryBarrierShared();
     }
 
-    if (perceptron_index >= perceptron_count || batch_index >= batch_size) {
+    if (perceptron_index >= perceptron_count || sample_index >= batch_size) {
         return;
     }
 
