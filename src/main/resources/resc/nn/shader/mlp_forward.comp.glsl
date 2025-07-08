@@ -61,7 +61,7 @@ layout(set = 0, binding = 2) buffer WeightsBuffer {
     readonly float weights[];
 };
 layout(set = 0, binding = 3) buffer BiasBuffer {
-    readonly float bias[];
+    readonly float biases[];
 };
 layout(set = 0, binding = 4) buffer OutputBuffer {
     writeonly float output_data[];
@@ -113,7 +113,7 @@ void main() {
     }
 #endif
 
-    float sum = bias[perceptron_index];
+    float sum = biases[perceptron_index];
     if (use_shared_memory) {
         for (uint i = 0; i < input_size; ++i) {
             sum += shared_input_data[i] * weights[weight_start_index + i];

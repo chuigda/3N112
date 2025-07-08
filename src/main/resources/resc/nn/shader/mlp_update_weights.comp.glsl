@@ -49,10 +49,10 @@ layout(set = 0, binding = 2) buffer GradientBuffer {
     readonly float gradient_data[];
 };
 layout(set = 0, binding = 3) buffer WeightsBuffer {
-    float weights_data[];
+    float weights[];
 };
 layout(set = 0, binding = 4) buffer BiasesBuffer {
-    float biases_data[];
+    float biases[];
 };
 
 void main() {
@@ -73,7 +73,7 @@ void main() {
     const float avg_weight_gradient = weight_gradient_sum / float(batch_size);
 
     const uint weight_index = perceptron_index * input_size + input_index;
-    weights_data[weight_index] -= learning_rate * avg_weight_gradient;
+    weights[weight_index] -= learning_rate * avg_weight_gradient;
 
     if (input_index == 0) {
         float bias_gradient_sum = 0.0;
@@ -83,6 +83,6 @@ void main() {
         }
 
         const float avg_bias_gradient = bias_gradient_sum / float(batch_size);
-        biases_data[perceptron_index] -= learning_rate * avg_bias_gradient;
+        biases[perceptron_index] -= learning_rate * avg_bias_gradient;
     }
 }
