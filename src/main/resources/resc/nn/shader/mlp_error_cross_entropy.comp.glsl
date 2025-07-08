@@ -2,7 +2,7 @@
 ///
 /// ## 线程定义
 ///
-/// 每个线程处理本层中所有感知机对 1 个样本的误差计算
+/// 每个线程处理本层中所有感知机对 1 个样本的梯度计算
 /// - gl_GlobalInvocationID.x: 样本索引
 ///
 /// **注意：这个着色器的线程定义与 MSE 算法（mlp_error_mse.comp.glsl）不同，需要不同的 dispatch 调用。**
@@ -24,7 +24,9 @@
 ///
 /// 输入数据
 /// - output_data: 本批次中所有感知机的输出数据，共计 batch_size * perceptron_count 个 float32
-/// - expected_output_data: 期望的输出数据，共计 batch_size 个 uint
+/// - expected_output_data: 期望输出数据，包含所有样本的期望输出数据
+///   本批次（dispatch）要处理起始样本起始由 input_offset 指定，每个样本对应 1 个 uint32
+///   总计为 batch_size 个 uint32
 ///
 /// 输出数据
 /// - gradient_data: 本批次中所有感知机的梯度数据，共计 batch_size * perceptron_count 个 float32

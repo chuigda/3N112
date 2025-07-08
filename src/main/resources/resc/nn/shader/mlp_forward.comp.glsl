@@ -26,9 +26,9 @@
 ///   - batch_size: 本批次处理的数据组数
 ///
 /// 输入数据
-/// - input_data: 输入数据，包含所有批次的输入数据
-///   本批次（dispatch）要处理起始数据批次起始由 input_offset 指定
-///   每一批次共处理 batch_size 组输入数据，每组输入数据的大小为 input_size
+/// - input_data: 输入数据，包含所有的样本，不只是本批次的样本
+///   本批次（dispatch）要处理起始样本起始由 input_offset 指定
+///   每一批次共处理 batch_size 组样本，每组样本的大小为 input_size
 ///   总计为 batch_size * input_size 个 float32
 /// - weights: 所有感知机的权重数据，每个感知机的权重数量为 input_size
 /// - bias: 所有感知机的偏置数据，每个感知机有一个偏置
