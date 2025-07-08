@@ -78,14 +78,21 @@ public final class MLPFactory implements AutoCloseable {
         List<Buffer> biasBufferList = new ArrayList<>();
         List<ComputePipeline> forwardPipelineList = new ArrayList<>();
         List<ComputePipeline> prewarmPipelineList = new ArrayList<>();
+        List<ComputePipeline> backpropPipelineList = new ArrayList<>();
+        List<ComputePipeline> updatePipelineList = new ArrayList<>();
 
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment forwardSpec = arena.allocate(ForwardShaderSpec.LAYOUT);
             forwardSpec.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_ty, 1);
             forwardSpec.set(ValueLayout.JAVA_BOOLEAN, ForwardShaderSpec.OFFSET_useSharedMemory, options.useSharedMemory);
 
+            MemorySegment updateWeightSpec = arena.allocate(UpdateWeightsShaderSpec.LAYOUT);
+            updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_ty, 1);
+
             int inputSize = options.inputSize;
-            for (MLPOptions.Layer layer : options.layers) {
+            for (int i = 0; i < options.layers.size(); i++) {
+                MLPOptions.Layer layer = options.layers.get(i);
+
                 forwardSpec.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_tx, layer.perceptronWorkgroupSize);
                 forwardSpec.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_perceptronCount, layer.size);
                 forwardSpec.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_inputSize, inputSize);
@@ -103,8 +110,37 @@ public final class MLPFactory implements AutoCloseable {
                         mlpWeightPrewarmPipelineLayout,
                         mlpWeightPrewarmModule,
                         // memory layout and data are compatible, so we can reuse the same memory segment
-                        new ShaderSpecialisation(WeightPrewarmSpec.SPEC_ENTRIES, forwardSpec)
+                        new ShaderSpecialisation(WeightPrewarmShaderSpec.SPEC_ENTRIES, forwardSpec)
                 ));
+
+                updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_tx, layer.perceptronWorkgroupSize);
+                updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_perceptronCount, layer.size);
+                updateWeightSpec.set(ValueLayout.JAVA_INT, UpdateWeightsShaderSpec.OFFSET_inputSize, inputSize);
+
+                updatePipelineList.add(ComputePipeline.create(
+                        cx,
+                        mlpUpdateWeightsPipelineLayout,
+                        mlpUpdateWeightsModule,
+                        new ShaderSpecialisation(UpdateWeightsShaderSpec.SPEC_ENTRIES, updateWeightSpec)
+                ));
+
+                if (i != options.layers.size() - 1) {
+                    MLPOptions.Layer nextLayer = options.layers.get(i + 1);
+
+                    MemorySegment backpropSpec = arena.allocate(BackpropShaderSpec.LAYOUT);
+                    backpropSpec.set(ValueLayout.JAVA_INT, BackpropShaderSpec.OFFSET_tx, layer.perceptronWorkgroupSize);
+                    backpropSpec.set(ValueLayout.JAVA_INT, BackpropShaderSpec.OFFSET_ty, 1);
+                    backpropSpec.set(ValueLayout.JAVA_INT, BackpropShaderSpec.OFFSET_perceptronCount, layer.size);
+                    backpropSpec.set(ValueLayout.JAVA_INT, BackpropShaderSpec.OFFSET_nextPerceptronCount, nextLayer.size);
+                    backpropSpec.set(ValueLayout.JAVA_INT, BackpropShaderSpec.OFFSET_activation, layer.activ.value);
+
+                    backpropPipelineList.add(ComputePipeline.create(
+                            cx,
+                            mlpBackpropPipelineLayout,
+                            mlpBackpropModule,
+                            new ShaderSpecialisation(BackpropShaderSpec.SPEC_ENTRIES, backpropSpec)
+                    ));
+                }
 
                 int weightBufferSize = inputSize * layer.size * Float.BYTES;
                 int biasBufferSize = layer.size * Float.BYTES;
@@ -133,7 +169,9 @@ public final class MLPFactory implements AutoCloseable {
                 weightBufferList,
                 biasBufferList,
                 forwardPipelineList,
-                prewarmPipelineList
+                prewarmPipelineList,
+                backpropPipelineList,
+                updatePipelineList
         );
     }
 
@@ -386,7 +424,7 @@ public final class MLPFactory implements AutoCloseable {
         );
     }
 
-    static final class WeightPrewarmSpec {
+    static final class WeightPrewarmShaderSpec {
         static final StructLayout LAYOUT = NativeLayout.structLayout(
                 ValueLayout.JAVA_INT.withName("tx"), // const uint tx
                 ValueLayout.JAVA_INT.withName("ty"), // const uint ty
@@ -413,6 +451,110 @@ public final class MLPFactory implements AutoCloseable {
                 new ShaderSpecialisation.Entry(2, ForwardShaderSpec.OFFSET_perceptronCount, Integer.BYTES),
                 new ShaderSpecialisation.Entry(3, ForwardShaderSpec.OFFSET_inputSize, Integer.BYTES),
                 new ShaderSpecialisation.Entry(4, ForwardShaderSpec.OFFSET_activation, Integer.BYTES)
+        );
+    }
+
+    static final class ErrorCrossEntropyShaderSpec {
+        static final StructLayout LAYOUT = NativeLayout.structLayout(
+                ValueLayout.JAVA_INT.withName("tx"), // const uint tx
+                ValueLayout.JAVA_INT.withName("ty"), // const uint ty
+                ValueLayout.JAVA_INT.withName("perceptron_count") // const uint perceptron_count
+        );
+
+        static final MemoryLayout.PathElement PATH_tx = MemoryLayout.PathElement.groupElement("tx");
+        static final MemoryLayout.PathElement PATH_ty = MemoryLayout.PathElement.groupElement("ty");
+        static final MemoryLayout.PathElement PATH_perceptronCount = MemoryLayout.PathElement.groupElement("perceptron_count");
+
+        static final int OFFSET_tx = (int) LAYOUT.byteOffset(PATH_tx);
+        static final int OFFSET_ty = (int) LAYOUT.byteOffset(PATH_ty);
+        static final int OFFSET_perceptronCount = (int) LAYOUT.byteOffset(PATH_perceptronCount);
+
+        static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
+                new ShaderSpecialisation.Entry(0, ForwardShaderSpec.OFFSET_tx, Integer.BYTES),
+                new ShaderSpecialisation.Entry(1, ForwardShaderSpec.OFFSET_ty, Integer.BYTES),
+                new ShaderSpecialisation.Entry(2, ForwardShaderSpec.OFFSET_perceptronCount, Integer.BYTES)
+        );
+    }
+
+    static final class ErrorMSEShaderSpec {
+        static final StructLayout LAYOUT = NativeLayout.structLayout(
+                ValueLayout.JAVA_INT.withName("tx"), // const uint tx
+                ValueLayout.JAVA_INT.withName("ty"), // const uint ty
+                ValueLayout.JAVA_INT.withName("perceptron_count"), // const uint perceptron_count
+                ValueLayout.JAVA_INT.withName("activation") // const uint activation
+        );
+
+        static final MemoryLayout.PathElement PATH_tx = MemoryLayout.PathElement.groupElement("tx");
+        static final MemoryLayout.PathElement PATH_ty = MemoryLayout.PathElement.groupElement("ty");
+        static final MemoryLayout.PathElement PATH_perceptronCount = MemoryLayout.PathElement.groupElement("perceptron_count");
+        static final MemoryLayout.PathElement PATH_activation = MemoryLayout.PathElement.groupElement("activation");
+
+        static final int OFFSET_tx = (int) LAYOUT.byteOffset(PATH_tx);
+        static final int OFFSET_ty = (int) LAYOUT.byteOffset(PATH_ty);
+        static final int OFFSET_perceptronCount = (int) LAYOUT.byteOffset(PATH_perceptronCount);
+        static final int OFFSET_activation = (int) LAYOUT.byteOffset(PATH_activation);
+
+        static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
+                new ShaderSpecialisation.Entry(0, OFFSET_tx, Integer.BYTES),
+                new ShaderSpecialisation.Entry(1, OFFSET_ty, Integer.BYTES),
+                new ShaderSpecialisation.Entry(2, OFFSET_perceptronCount, Integer.BYTES),
+                new ShaderSpecialisation.Entry(3, OFFSET_activation, Integer.BYTES)
+        );
+    }
+
+    static final class BackpropShaderSpec {
+        static final StructLayout LAYOUT = NativeLayout.structLayout(
+                ValueLayout.JAVA_INT.withName("tx"), // const uint tx
+                ValueLayout.JAVA_INT.withName("ty"), // const uint ty
+                ValueLayout.JAVA_INT.withName("perceptron_count"), // const uint perceptron_count
+                ValueLayout.JAVA_INT.withName("next_perceptron_count"), // const uint next_perceptron_count
+                ValueLayout.JAVA_INT.withName("activation") // const uint activation
+        );
+
+        static final MemoryLayout.PathElement PATH_tx = MemoryLayout.PathElement.groupElement("tx");
+        static final MemoryLayout.PathElement PATH_ty = MemoryLayout.PathElement.groupElement("ty");
+        static final MemoryLayout.PathElement PATH_perceptronCount = MemoryLayout.PathElement.groupElement("perceptron_count");
+        static final MemoryLayout.PathElement PATH_nextPerceptronCount = MemoryLayout.PathElement.groupElement("next_perceptron_count");
+        static final MemoryLayout.PathElement PATH_activation = MemoryLayout.PathElement.groupElement("activation");
+
+        static final int OFFSET_tx = (int) LAYOUT.byteOffset(PATH_tx);
+        static final int OFFSET_ty = (int) LAYOUT.byteOffset(PATH_ty);
+        static final int OFFSET_perceptronCount = (int) LAYOUT.byteOffset(PATH_perceptronCount);
+        static final int OFFSET_nextPerceptronCount = (int) LAYOUT.byteOffset(PATH_nextPerceptronCount);
+        static final int OFFSET_activation = (int) LAYOUT.byteOffset(PATH_activation);
+
+        static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
+                new ShaderSpecialisation.Entry(0, OFFSET_tx, Integer.BYTES),
+                new ShaderSpecialisation.Entry(1, OFFSET_ty, Integer.BYTES),
+                new ShaderSpecialisation.Entry(2, OFFSET_perceptronCount, Integer.BYTES),
+                new ShaderSpecialisation.Entry(3, OFFSET_nextPerceptronCount, Integer.BYTES),
+                new ShaderSpecialisation.Entry(4, OFFSET_activation, Integer.BYTES)
+        );
+    }
+
+    static final class UpdateWeightsShaderSpec {
+        static final StructLayout LAYOUT = NativeLayout.structLayout(
+                ValueLayout.JAVA_INT.withName("tx"), // const uint tx
+                ValueLayout.JAVA_INT.withName("ty"), // const uint ty
+                ValueLayout.JAVA_INT.withName("input_size"), // const uint input_size
+                ValueLayout.JAVA_INT.withName("perceptron_count") // const uint perceptron_count
+        );
+
+        static final MemoryLayout.PathElement PATH_tx = MemoryLayout.PathElement.groupElement("tx");
+        static final MemoryLayout.PathElement PATH_ty = MemoryLayout.PathElement.groupElement("ty");
+        static final MemoryLayout.PathElement PATH_inputSize = MemoryLayout.PathElement.groupElement("input_size");
+        static final MemoryLayout.PathElement PATH_perceptronCount = MemoryLayout.PathElement.groupElement("perceptron_count");
+
+        static final int OFFSET_tx = (int) LAYOUT.byteOffset(PATH_tx);
+        static final int OFFSET_ty = (int) LAYOUT.byteOffset(PATH_ty);
+        static final int OFFSET_inputSize = (int) LAYOUT.byteOffset(PATH_inputSize);
+        static final int OFFSET_perceptronCount = (int) LAYOUT.byteOffset(PATH_perceptronCount);
+
+        static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
+                new ShaderSpecialisation.Entry(0, OFFSET_tx, Integer.BYTES),
+                new ShaderSpecialisation.Entry(1, OFFSET_ty, Integer.BYTES),
+                new ShaderSpecialisation.Entry(2, OFFSET_inputSize, Integer.BYTES),
+                new ShaderSpecialisation.Entry(3, OFFSET_perceptronCount, Integer.BYTES)
         );
     }
 }
