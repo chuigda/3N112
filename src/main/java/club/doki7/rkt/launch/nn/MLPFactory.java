@@ -415,12 +415,12 @@ public final class MLPFactory implements AutoCloseable {
         static final int OFFSET_useSharedMemory = (int) LAYOUT.byteOffset(PATH_useSharedMemory);
 
         static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
-                new ShaderSpecialisation.Entry(0, ForwardShaderSpec.OFFSET_tx, Integer.BYTES),
-                new ShaderSpecialisation.Entry(1, ForwardShaderSpec.OFFSET_ty, Integer.BYTES),
-                new ShaderSpecialisation.Entry(2, ForwardShaderSpec.OFFSET_perceptronCount, Integer.BYTES),
-                new ShaderSpecialisation.Entry(3, ForwardShaderSpec.OFFSET_inputSize, Integer.BYTES),
-                new ShaderSpecialisation.Entry(4, ForwardShaderSpec.OFFSET_activation, Integer.BYTES),
-                new ShaderSpecialisation.Entry(5, ForwardShaderSpec.OFFSET_useSharedMemory, Integer.BYTES)
+                new ShaderSpecialisation.Entry(0, OFFSET_tx, Integer.BYTES),
+                new ShaderSpecialisation.Entry(1, OFFSET_ty, Integer.BYTES),
+                new ShaderSpecialisation.Entry(2, OFFSET_perceptronCount, Integer.BYTES),
+                new ShaderSpecialisation.Entry(3, OFFSET_inputSize, Integer.BYTES),
+                new ShaderSpecialisation.Entry(4, OFFSET_activation, Integer.BYTES),
+                new ShaderSpecialisation.Entry(5, OFFSET_useSharedMemory, Integer.BYTES)
         );
     }
 
@@ -446,11 +446,11 @@ public final class MLPFactory implements AutoCloseable {
         static final int OFFSET_activation = (int) LAYOUT.byteOffset(PATH_activation);
 
         static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
-                new ShaderSpecialisation.Entry(0, ForwardShaderSpec.OFFSET_tx, Integer.BYTES),
-                new ShaderSpecialisation.Entry(1, ForwardShaderSpec.OFFSET_ty, Integer.BYTES),
-                new ShaderSpecialisation.Entry(2, ForwardShaderSpec.OFFSET_perceptronCount, Integer.BYTES),
-                new ShaderSpecialisation.Entry(3, ForwardShaderSpec.OFFSET_inputSize, Integer.BYTES),
-                new ShaderSpecialisation.Entry(4, ForwardShaderSpec.OFFSET_activation, Integer.BYTES)
+                new ShaderSpecialisation.Entry(0, OFFSET_tx, Integer.BYTES),
+                new ShaderSpecialisation.Entry(1, OFFSET_ty, Integer.BYTES),
+                new ShaderSpecialisation.Entry(2, OFFSET_perceptronCount, Integer.BYTES),
+                new ShaderSpecialisation.Entry(3, OFFSET_inputSize, Integer.BYTES),
+                new ShaderSpecialisation.Entry(4, OFFSET_activation, Integer.BYTES)
         );
     }
 
@@ -470,9 +470,9 @@ public final class MLPFactory implements AutoCloseable {
         static final int OFFSET_perceptronCount = (int) LAYOUT.byteOffset(PATH_perceptronCount);
 
         static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
-                new ShaderSpecialisation.Entry(0, ForwardShaderSpec.OFFSET_tx, Integer.BYTES),
-                new ShaderSpecialisation.Entry(1, ForwardShaderSpec.OFFSET_ty, Integer.BYTES),
-                new ShaderSpecialisation.Entry(2, ForwardShaderSpec.OFFSET_perceptronCount, Integer.BYTES)
+                new ShaderSpecialisation.Entry(0, OFFSET_tx, Integer.BYTES),
+                new ShaderSpecialisation.Entry(1, OFFSET_ty, Integer.BYTES),
+                new ShaderSpecialisation.Entry(2, OFFSET_perceptronCount, Integer.BYTES)
         );
     }
 
