@@ -32,14 +32,16 @@ public final class MLP implements AutoCloseable {
             RenderContext cx,
             List<Buffer> weightBufferList,
             List<Buffer> biasBufferList,
-            List<ComputePipeline> computePipelineList
+            List<ComputePipeline> forwardPipelineList,
+            List<ComputePipeline> prewarmPipelineList
     ) {
         this.factory = factory;
         this.options = options;
         this.cx = cx;
         this.weightBufferList = weightBufferList;
         this.biasBufferList = biasBufferList;
-        this.computePipelineList = computePipelineList;
+        this.forwardPipelineList = forwardPipelineList;
+        this.prewarmPipelineList = prewarmPipelineList;
     }
 
     public void uploadWeights(
@@ -124,7 +126,10 @@ public final class MLP implements AutoCloseable {
 
     @Override
     public void close() {
-        for (ComputePipeline pipeline : computePipelineList) {
+        for (ComputePipeline pipeline : prewarmPipelineList) {
+            pipeline.close();
+        }
+        for (ComputePipeline pipeline : forwardPipelineList) {
             pipeline.close();
         }
         for (Buffer buffer : weightBufferList) {
@@ -138,5 +143,6 @@ public final class MLP implements AutoCloseable {
     final RenderContext cx;
     final List<Buffer> weightBufferList;
     final List<Buffer> biasBufferList;
-    final List<ComputePipeline> computePipelineList;
+    final List<ComputePipeline> forwardPipelineList;
+    final List<ComputePipeline> prewarmPipelineList;
 }

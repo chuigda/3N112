@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Set;
 
 public abstract sealed class MLPTaskBase implements AutoCloseable
-        permits MLPInferTask
+        permits MLPInferTask, MLPTrainTask
 {
     public final int batchSize;
     public final Buffer inputBuffer;
@@ -137,7 +137,7 @@ public abstract sealed class MLPTaskBase implements AutoCloseable
                 cx.dCmd.cmdBindPipeline(
                         cmdBuf.handle,
                         VkPipelineBindPoint.COMPUTE,
-                        mlp.computePipelineList.get(i).handle
+                        mlp.forwardPipelineList.get(i).handle
                 );
                 cx.dCmd.cmdPushDescriptorSetKHR(
                         cmdBuf.handle,

@@ -31,15 +31,15 @@ public final class MLPInferTask extends MLPTaskBase implements AutoCloseable {
         long totalCount = inputBuffer.size / ((long) mlp.options.inputSize * Float.BYTES);
         long ehtotBatchSize = Math.min(totalCount - batchStart, batchSize);
         if (ehtotBatchSize <= 0) {
-            throw new IllegalArgumentException("批次大小超出输入数据范围");
+            throw new IllegalArgumentException("批次起始超出输入数据范围");
         }
 
         IntPtr pInferOptionsBuffer = Objects.requireNonNull(IntPtr.checked(inferOptionsBuffer.mapped));
-        IntPtr pLayer0InferOptionsBuffer = Objects.requireNonNull(IntPtr.checked(ioInferOptionsBuffer.mapped));
+        IntPtr pIOInferOptionsBuffer = Objects.requireNonNull(IntPtr.checked(ioInferOptionsBuffer.mapped));
         pInferOptionsBuffer.write(0, 0);
         pInferOptionsBuffer.write(1, (int) ehtotBatchSize);
-        pLayer0InferOptionsBuffer.write(0, batchStart);
-        pLayer0InferOptionsBuffer.write(1, (int) ehtotBatchSize);
+        pIOInferOptionsBuffer.write(0, batchStart);
+        pIOInferOptionsBuffer.write(1, (int) ehtotBatchSize);
 
         try (Fence fence = Fence.createLocal(cx)) {
             if (cx.hasComputeQueue()) {

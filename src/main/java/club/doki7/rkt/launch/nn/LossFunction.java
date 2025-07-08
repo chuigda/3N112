@@ -1,6 +1,6 @@
 package club.doki7.rkt.launch.nn;
 
 public enum LossFunction {
-    CrossEntropy,
-    MeanSquaredError
+    CROSS_ENTROPY,
+    MEAN_SQUARED_ERROR
 }

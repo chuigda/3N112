@@ -57,6 +57,10 @@ void main() {
     const uint perceptron_id = id.x;
     const uint weight_id = id.y;
 
+    if (perceptron_id >= perceptron_count || weight_id >= input_size) {
+        return;
+    }
+
     const uint weight_index = perceptron_id * input_size + weight_id;
     const uint bias_index = perceptron_id;
 
@@ -79,6 +83,10 @@ void main() {
     weights[weight_index] = rand_val * std_dev;
 
     if (weight_id == 0) {
-        biases[bias_index] = 0.0;
+        if (activation == ACTIV_RELU || activation == ACTIV_LEAKY_RELU) {
+            biases[bias_index] = 0.01;
+        } else {
+            biases[bias_index] = 0.0;
+        }
     }
 }

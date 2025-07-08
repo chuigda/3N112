@@ -76,25 +76,34 @@ public final class MLPFactory implements AutoCloseable {
 
         List<Buffer> weightBufferList = new ArrayList<>();
         List<Buffer> biasBufferList = new ArrayList<>();
-        List<ComputePipeline> computePipelineList = new ArrayList<>();
+        List<ComputePipeline> forwardPipelineList = new ArrayList<>();
+        List<ComputePipeline> prewarmPipelineList = new ArrayList<>();
 
         try (Arena arena = Arena.ofConfined()) {
-            MemorySegment specSegment = arena.allocate(ForwardShaderSpec.LAYOUT);
-            specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_ty, 1);
-            specSegment.set(ValueLayout.JAVA_BOOLEAN, ForwardShaderSpec.OFFSET_useSharedMemory, options.useSharedMemory);
+            MemorySegment forwardSpec = arena.allocate(ForwardShaderSpec.LAYOUT);
+            forwardSpec.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_ty, 1);
+            forwardSpec.set(ValueLayout.JAVA_BOOLEAN, ForwardShaderSpec.OFFSET_useSharedMemory, options.useSharedMemory);
 
             int inputSize = options.inputSize;
             for (MLPOptions.Layer layer : options.layers) {
-                specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_tx, layer.perceptronWorkgroupSize);
-                specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_perceptronCount, layer.size);
-                specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_inputSize, inputSize);
-                specSegment.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_activation, layer.activ.value);
+                forwardSpec.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_tx, layer.perceptronWorkgroupSize);
+                forwardSpec.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_perceptronCount, layer.size);
+                forwardSpec.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_inputSize, inputSize);
+                forwardSpec.set(ValueLayout.JAVA_INT, ForwardShaderSpec.OFFSET_activation, layer.activ.value);
 
-                computePipelineList.add(ComputePipeline.create(
+                forwardPipelineList.add(ComputePipeline.create(
                         cx,
                         mlpForwardPipelineLayout,
                         mlpForwardModule,
-                        new ShaderSpecialisation(ForwardShaderSpec.SPEC_ENTRIES, specSegment)
+                        new ShaderSpecialisation(ForwardShaderSpec.SPEC_ENTRIES, forwardSpec)
+                ));
+
+                prewarmPipelineList.add(ComputePipeline.create(
+                        cx,
+                        mlpWeightPrewarmPipelineLayout,
+                        mlpWeightPrewarmModule,
+                        // memory layout and data are compatible, so we can reuse the same memory segment
+                        new ShaderSpecialisation(WeightPrewarmSpec.SPEC_ENTRIES, forwardSpec)
                 ));
 
                 int weightBufferSize = inputSize * layer.size * Float.BYTES;
@@ -123,7 +132,8 @@ public final class MLPFactory implements AutoCloseable {
                 cx,
                 weightBufferList,
                 biasBufferList,
-                computePipelineList
+                forwardPipelineList,
+                prewarmPipelineList
         );
     }
 
@@ -329,6 +339,16 @@ public final class MLPFactory implements AutoCloseable {
         }
     }
 
+    private static int round2WorkgroupSize(int problemSize) {
+        int[] workgroupSizes = { 2, 4, 8, 16, 32, 64 };
+        for (int size : workgroupSizes) {
+            if (problemSize % size > size / 2) {
+                return problemSize / size;
+            }
+        }
+        return 1;
+    }
+
     private static final DescriptorSetLayoutBinding UBO = new DescriptorSetLayoutBinding(DescriptorKind.UNIFORM_BUFFER, ShaderStage.COMPUTE);
     private static final DescriptorSetLayoutBinding SSBO = new DescriptorSetLayoutBinding(DescriptorKind.STORAGE_BUFFER, ShaderStage.COMPUTE);
 
@@ -339,7 +359,7 @@ public final class MLPFactory implements AutoCloseable {
                 ValueLayout.JAVA_INT.withName("perceptron_count"), // const uint perceptron_count
                 ValueLayout.JAVA_INT.withName("input_size"), // const uint input_size
                 ValueLayout.JAVA_INT.withName("activation"), // const uint activation
-                ValueLayout.JAVA_BOOLEAN.withName("use_shared_memory")  // const boolean use_shared_memory
+                ValueLayout.JAVA_INT.withName("use_shared_memory")  // const boolean use_shared_memory
         );
 
         static final MemoryLayout.PathElement PATH_tx = MemoryLayout.PathElement.groupElement("tx");
@@ -363,6 +383,36 @@ public final class MLPFactory implements AutoCloseable {
                 new ShaderSpecialisation.Entry(3, ForwardShaderSpec.OFFSET_inputSize, Integer.BYTES),
                 new ShaderSpecialisation.Entry(4, ForwardShaderSpec.OFFSET_activation, Integer.BYTES),
                 new ShaderSpecialisation.Entry(5, ForwardShaderSpec.OFFSET_useSharedMemory, Integer.BYTES)
+        );
+    }
+
+    static final class WeightPrewarmSpec {
+        static final StructLayout LAYOUT = NativeLayout.structLayout(
+                ValueLayout.JAVA_INT.withName("tx"), // const uint tx
+                ValueLayout.JAVA_INT.withName("ty"), // const uint ty
+                ValueLayout.JAVA_INT.withName("perceptron_count"), // const uint perceptron_count
+                ValueLayout.JAVA_INT.withName("input_size"), // const uint input_size
+                ValueLayout.JAVA_INT.withName("activation") // const uint activation
+        );
+
+        static final MemoryLayout.PathElement PATH_tx = MemoryLayout.PathElement.groupElement("tx");
+        static final MemoryLayout.PathElement PATH_ty = MemoryLayout.PathElement.groupElement("ty");
+        static final MemoryLayout.PathElement PATH_perceptronCount = MemoryLayout.PathElement.groupElement("perceptron_count");
+        static final MemoryLayout.PathElement PATH_inputSize = MemoryLayout.PathElement.groupElement("input_size");
+        static final MemoryLayout.PathElement PATH_activation = MemoryLayout.PathElement.groupElement("activation");
+
+        static final int OFFSET_tx = (int) LAYOUT.byteOffset(PATH_tx);
+        static final int OFFSET_ty = (int) LAYOUT.byteOffset(PATH_ty);
+        static final int OFFSET_perceptronCount = (int) LAYOUT.byteOffset(PATH_perceptronCount);
+        static final int OFFSET_inputSize = (int) LAYOUT.byteOffset(PATH_inputSize);
+        static final int OFFSET_activation = (int) LAYOUT.byteOffset(PATH_activation);
+
+        static final List<ShaderSpecialisation.Entry> SPEC_ENTRIES = List.of(
+                new ShaderSpecialisation.Entry(0, ForwardShaderSpec.OFFSET_tx, Integer.BYTES),
+                new ShaderSpecialisation.Entry(1, ForwardShaderSpec.OFFSET_ty, Integer.BYTES),
+                new ShaderSpecialisation.Entry(2, ForwardShaderSpec.OFFSET_perceptronCount, Integer.BYTES),
+                new ShaderSpecialisation.Entry(3, ForwardShaderSpec.OFFSET_inputSize, Integer.BYTES),
+                new ShaderSpecialisation.Entry(4, ForwardShaderSpec.OFFSET_activation, Integer.BYTES)
         );
     }
 }

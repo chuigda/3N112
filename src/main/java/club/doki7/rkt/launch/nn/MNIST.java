@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-public final class MNIST_Infer {
+public final class MNIST {
     static {
         System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tFT%1$tT] [%4$s] %3$s : %5$s%n");
     }
@@ -58,12 +58,49 @@ final class Application implements AutoCloseable {
                 true
         );
 
-        byte[] inputData = Files.readAllBytes(Path.of("resc", "nn", "t10k-images-idx3-ubyte.bin"));
-        assert inputData.length == MNIST_IMAGE_SIZE * 10_000 + MNIST_IMAGE_FILE_HEADER_SIZE;
+        try (MLPFactory factory = new MLPFactory(cx);
+             MLP model = factory.createModel(options)) {
+            train(model);
+            loadWeights(model);
+            infer(model);
+        }
+    }
 
-        byte[] labelData = Files.readAllBytes(Path.of("resc", "nn", "t10k-labels-idx1-ubyte.bin"));
-        assert labelData.length == 10_000 + MNIST_LABEL_FILE_HEADER_SIZE;
+    private void train(MLP model) throws RenderException, IOException {
+        final int trainDataSize = 60_000;
+        final int batchSize = 64;
 
+        byte[] inputData = Files.readAllBytes(Path.of("resc", "nn", "train-images-idx3-ubyte.bin"));
+        assert inputData.length == MNIST_IMAGE_SIZE * trainDataSize + MNIST_IMAGE_FILE_HEADER_SIZE;
+
+        byte[] labelData = Files.readAllBytes(Path.of("resc", "nn", "train-labels-idx1-ubyte.bin"));
+        assert labelData.length == trainDataSize + MNIST_LABEL_FILE_HEADER_SIZE;
+
+        Buffer.Options ioBufferOptions = Buffer.OptionsInit.shaderStorageBufferPreset().build();
+        try (Buffer inputBuffer = Buffer.create(cx, trainDataSize * MNIST_IMAGE_SIZE * Float.BYTES, false, ioBufferOptions);
+             Buffer labelBuffer = Buffer.create(cx, trainDataSize, false, ioBufferOptions);
+             MLPTrainTask trainTask = new MLPTrainTask(model, batchSize, inputBuffer, labelBuffer, LossFunction.CROSS_ENTROPY);
+             Arena arena = Arena.ofConfined()) {
+
+            FloatPtr normalisedInput = FloatPtr.allocate(arena, inputData.length - MNIST_IMAGE_FILE_HEADER_SIZE);
+            for (int i = MNIST_IMAGE_FILE_HEADER_SIZE; i < inputData.length; i++) {
+                normalisedInput.write(i - MNIST_IMAGE_FILE_HEADER_SIZE, (inputData[i] & 0xFF) / 255.0f);
+            }
+
+            QueueFamily queueAffinity = cx.hasComputeQueue() ? QueueFamily.COMPUTE : QueueFamily.GRAPHICS;
+            Transmission.uploadBuffer(cx, inputBuffer, normalisedInput.segment(), queueAffinity);
+            Transmission.uploadBuffer(
+                    cx,
+                    labelBuffer,
+                    MemorySegment.ofArray(labelData).asSlice(MNIST_LABEL_FILE_HEADER_SIZE),
+                    queueAffinity
+            );
+
+            trainTask.prewarm();
+        }
+    }
+
+    private void loadWeights(MLP mlp) throws RenderException, IOException {
         List<MemorySegment> weightList = new ArrayList<>();
         List<MemorySegment> biasList = new ArrayList<>();
         for (int i = 0; i < weightFileNameList.size(); i++) {
@@ -78,19 +115,24 @@ final class Application implements AutoCloseable {
             biasList.add(MemorySegment.ofArray(biases));
         }
 
-        Buffer.Options inputBufferOptions = Buffer.OptionsInit.shaderStorageBufferPreset().build();
-        long inputItemCount = inputData.length - MNIST_IMAGE_FILE_HEADER_SIZE;
-        long inputBufferSize = inputItemCount * Float.BYTES;
+        mlp.uploadWeights(weightList, biasList);
+    }
 
+    private void infer(MLP model) throws RenderException, IOException {
+        final int testDataSize = 10_000;
         final int batchSize = 1000;
-        try (MLPFactory factory = new MLPFactory(cx);
-             MLP model = factory.createModel(options);
-             Buffer inputBuffer = Buffer.create(cx, inputBufferSize, false, inputBufferOptions);
+
+        byte[] inputData = Files.readAllBytes(Path.of("resc", "nn", "t10k-images-idx3-ubyte.bin"));
+        assert inputData.length == MNIST_IMAGE_SIZE * testDataSize + MNIST_IMAGE_FILE_HEADER_SIZE;
+
+        byte[] labelData = Files.readAllBytes(Path.of("resc", "nn", "t10k-labels-idx1-ubyte.bin"));
+        assert labelData.length == testDataSize + MNIST_LABEL_FILE_HEADER_SIZE;
+
+        Buffer.Options inputBufferOptions = Buffer.OptionsInit.shaderStorageBufferPreset().build();
+        try (Buffer inputBuffer = Buffer.create(cx, testDataSize * MNIST_IMAGE_SIZE * Float.BYTES, false, inputBufferOptions);
              MLPInferTask inferTask = new MLPInferTask(model, batchSize, inputBuffer, true, false);
              Arena arena = Arena.ofConfined()) {
-            model.uploadWeights(weightList, biasList);
-
-            FloatPtr normalisedInput = FloatPtr.allocate(arena, inputItemCount);
+            FloatPtr normalisedInput = FloatPtr.allocate(arena, inputData.length - MNIST_IMAGE_FILE_HEADER_SIZE);
             for (int i = MNIST_IMAGE_FILE_HEADER_SIZE; i < inputData.length; i++) {
                 normalisedInput.write(i - MNIST_IMAGE_FILE_HEADER_SIZE, (inputData[i] & 0xFF) / 255.0f);
             }
@@ -101,7 +143,7 @@ final class Application implements AutoCloseable {
             FloatPtr outputMapped = Objects.requireNonNull(FloatPtr.checked(inferTask.outputBufferList.getLast().mapped));
             assert outputMapped.size() == batchSize * 10;
             int correctCount = 0;
-            for (int batchIdx = 0; batchIdx < 10_000; batchIdx += batchSize) {
+            for (int batchIdx = 0; batchIdx < testDataSize; batchIdx += batchSize) {
                 long startTime = System.nanoTime();
                 inferTask.executeBatch(batchIdx);
                 long endTime = System.nanoTime();
@@ -119,7 +161,7 @@ final class Application implements AutoCloseable {
                 }
             }
 
-            float accuracy = (float) correctCount / 10_000.0f;
+            float accuracy = (float) correctCount / (float) testDataSize;
             logger.info("推理准确率: " + accuracy * 100.0f + "%");
         }
     }
