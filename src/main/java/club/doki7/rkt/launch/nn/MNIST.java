@@ -29,7 +29,7 @@ public final class MNIST {
     public static void main(String[] ignored) {
         try (ISharedLibrary libVulkan = VulkanLoader.loadVulkanLibrary();
              ISharedLibrary libVMA = ILibraryLoader.platformLoader().loadLibrary("vma");
-             Application app = new Application(libVulkan, libVMA)) {
+             MNIST_Application app = new MNIST_Application(libVulkan, libVMA)) {
             app.applicationStart();
         } catch (Throwable e) {
             e.printStackTrace(System.err);
@@ -37,13 +37,13 @@ public final class MNIST {
     }
 }
 
-final class Application implements AutoCloseable {
+final class MNIST_Application implements AutoCloseable {
     @Override
     public void close() {
         cx.close();
     }
 
-    Application(ISharedLibrary libVulkan, ISharedLibrary libVMA) throws RenderException {
+    MNIST_Application(ISharedLibrary libVulkan, ISharedLibrary libVMA) throws RenderException {
         this.cx = RenderContext.createHeadless(libVulkan, libVMA, new RenderConfig());
     }
 
@@ -191,7 +191,7 @@ final class Application implements AutoCloseable {
 
     private final RenderContext cx;
 
-    private static final Logger logger = Logger.getLogger(Application.class.getName());
+    private static final Logger logger = Logger.getLogger(MNIST_Application.class.getName());
     private static final List<String> weightFileNameList = List.of(
             "weights_L1_784x300.bin",
             "weights_L2_300x100.bin",
