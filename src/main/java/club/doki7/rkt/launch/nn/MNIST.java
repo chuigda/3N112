@@ -61,7 +61,6 @@ final class Application implements AutoCloseable {
         try (MLPFactory factory = new MLPFactory(cx);
              MLP model = factory.createModel(options)) {
             train(model);
-            loadWeights(model);
             infer(model);
         }
     }
@@ -97,6 +96,16 @@ final class Application implements AutoCloseable {
             );
 
             trainTask.prewarm();
+
+            for (int i = 0; i < 10; i++) {
+                long startTime = System.nanoTime();
+                for (int j = 0; j < trainDataSize; j += batchSize) {
+                    trainTask.executeBatch(j, 0.01f);
+                }
+                long endTime = System.nanoTime();
+
+                logger.info("第 " + (i + 1) + " 轮训练耗时: " + (endTime - startTime) / 1000_000 + " ms");
+            }
         }
     }
 
