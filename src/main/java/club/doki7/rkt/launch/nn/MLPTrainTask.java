@@ -77,10 +77,9 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
 
         Buffer.OptionsInit optionsInit = new Buffer.OptionsInit();
         optionsInit.usage = Set.of(Buffer.Usage.STORAGE_BUFFER);
-        Buffer.Options storageOnlyOptions = optionsInit.build();
         optionsInit.mapped = true;
         optionsInit.coherent = true;
-        Buffer.Options lastGradientOptions = optionsInit.build();
+        Buffer.Options storageOnlyOptions = optionsInit.build();
         optionsInit.usage = Set.of(Buffer.Usage.UNIFORM_BUFFER);
         Buffer.Options uniformOptions = optionsInit.build();
 
@@ -100,9 +99,7 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
                     cx,
                     (long) layer.size * batchSize * Float.BYTES,
                     false,
-                    i == mlp.options.layers.size() - 1
-                            ? lastGradientOptions
-                            : storageOnlyOptions
+                    storageOnlyOptions
             );
             gradientBufferList.add(gradientBuffer);
 

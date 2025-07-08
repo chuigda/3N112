@@ -3,6 +3,7 @@ package club.doki7.rkt.launch.nn;
 import club.doki7.ffm.library.ILibraryLoader;
 import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.ffm.ptr.FloatPtr;
+import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.rkt.exc.RenderException;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
@@ -77,7 +78,7 @@ final class MNIST_Application implements AutoCloseable {
 
         Buffer.Options ioBufferOptions = Buffer.OptionsInit.shaderStorageBufferPreset().build();
         try (Buffer inputBuffer = Buffer.create(cx, trainDataSize * MNIST_IMAGE_SIZE * Float.BYTES, false, ioBufferOptions);
-             Buffer labelBuffer = Buffer.create(cx, trainDataSize, false, ioBufferOptions);
+             Buffer labelBuffer = Buffer.create(cx, trainDataSize * Integer.BYTES, false, ioBufferOptions);
              MLPTrainTask trainTask = new MLPTrainTask(model, batchSize, inputBuffer, labelBuffer, LossFunction.CROSS_ENTROPY);
              Arena arena = Arena.ofConfined()) {
 
@@ -86,14 +87,14 @@ final class MNIST_Application implements AutoCloseable {
                 normalisedInput.write(i - MNIST_IMAGE_FILE_HEADER_SIZE, (inputData[i] & 0xFF) / 255.0f);
             }
 
+            IntPtr normalisedOutput = IntPtr.allocate(arena, labelData.length - MNIST_LABEL_FILE_HEADER_SIZE);
+            for (int i = MNIST_LABEL_FILE_HEADER_SIZE; i < labelData.length; i++) {
+                normalisedOutput.write(i - MNIST_LABEL_FILE_HEADER_SIZE, labelData[i] & 0xFF);
+            }
+
             QueueFamily queueAffinity = cx.hasComputeQueue() ? QueueFamily.COMPUTE : QueueFamily.GRAPHICS;
             Transmission.uploadBuffer(cx, inputBuffer, normalisedInput.segment(), queueAffinity);
-            Transmission.uploadBuffer(
-                    cx,
-                    labelBuffer,
-                    MemorySegment.ofArray(labelData).asSlice(MNIST_LABEL_FILE_HEADER_SIZE),
-                    queueAffinity
-            );
+            Transmission.uploadBuffer(cx, labelBuffer, normalisedOutput.segment(), queueAffinity);
 
             trainTask.prewarm();
 

@@ -52,8 +52,8 @@ final class XOR_Application implements AutoCloseable {
 
         try (MLPFactory factory = new MLPFactory(cx);
              MLP model = factory.createModel(options)) {
-            // train(model);
-            loadWeight(model);
+            train(model);
+            // loadWeight(model);
             infer(model);
         }
     }
