@@ -19,6 +19,9 @@
 /// - 更新选项（UpdateOptions）
 ///   - learning_rate: 学习率
 ///   - batch_size: 本批次处理的数据组数
+/// - 推理选项（InferOptions）
+///   - input_offset: 输入数据的偏移量，指定从输入数据（input_data）的哪个样本开始处理
+///   - batch_size_dup: 未使用，但为了描述符集兼容性而保留
 ///
 /// 输入数据
 /// - input_data: 本层的输入数据（即前一层的输出数据），共计 batch_size * input_size 个 float32
@@ -42,16 +45,20 @@ layout(set = 0, binding = 0) uniform UpdateOptions {
     float learning_rate;
     uint batch_size;
 };
-layout(set = 0, binding = 1) buffer InputBuffer {
+layout(set = 0, binding = 1) uniform InferOptions {
+    uint input_offset;
+    uint batch_size_dup; // unused, for descriptor set compatibility
+};
+layout(set = 0, binding = 2) buffer InputBuffer {
     readonly float input_data[];
 };
-layout(set = 0, binding = 2) buffer GradientBuffer {
+layout(set = 0, binding = 3) buffer GradientBuffer {
     readonly float gradient_data[];
 };
-layout(set = 0, binding = 3) buffer WeightsBuffer {
+layout(set = 0, binding = 4) buffer WeightsBuffer {
     float weights[];
 };
-layout(set = 0, binding = 4) buffer BiasesBuffer {
+layout(set = 0, binding = 5) buffer BiasesBuffer {
     float biases[];
 };
 
@@ -63,9 +70,10 @@ void main() {
         return;
     }
 
+    const uint input_start_index = input_offset * input_size + input_index;
     float weight_gradient_sum = 0.0;
     for (uint sample_index = 0; sample_index < batch_size; ++sample_index) {
-        const float input_value = input_data[sample_index * input_size + input_index];
+        const float input_value = input_data[input_start_index + sample_index * input_size];
         const float error_signal = gradient_data[sample_index * perceptron_count + perceptron_index];
         weight_gradient_sum += input_value * error_signal;
     }

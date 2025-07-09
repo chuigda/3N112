@@ -113,9 +113,12 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
                     mlp.factory.mlpUpdateWeightsSetLayout,
                     List.of(
                             UniformBufferObject.create(cx, updateOptionsBuffer),
+                            UniformBufferObject.create(cx, i == 0
+                                    ? ioInferOptionsBuffer
+                                    : inferOptionsBuffer),
                             ShaderStorageBufferObject.create(cx, i == 0
-                                            ? inputBuffer
-                                            : outputBufferList.get(i - 1)),
+                                    ? inputBuffer
+                                    : outputBufferList.get(i - 1)),
                             ShaderStorageBufferObject.create(cx, gradientBuffer),
                             ShaderStorageBufferObject.create(cx, mlp.weightBufferList.get(i)),
                             ShaderStorageBufferObject.create(cx, mlp.biasBufferList.get(i))

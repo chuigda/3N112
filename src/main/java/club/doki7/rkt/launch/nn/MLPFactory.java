@@ -300,6 +300,11 @@ public final class MLPFactory implements AutoCloseable {
                 //     uint batch_size;
                 // };
                 UBO,
+                // layout(set = 0, binding = 0) uniform InferOptions {
+                //     uint input_offset;
+                //     uint batch_size;
+                // };
+                UBO,
                 // layout(set = 0, binding = 1) buffer InputBuffer {
                 //     readonly float input_data[];
                 // };

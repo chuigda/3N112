@@ -4,6 +4,7 @@ import club.doki7.ffm.library.ILibraryLoader;
 import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.ffm.ptr.FloatPtr;
 import club.doki7.rkt.exc.RenderException;
+import club.doki7.rkt.util.Assertion;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.resc.Buffer;
@@ -53,6 +54,19 @@ final class XOR_Application implements AutoCloseable {
         try (MLPFactory factory = new MLPFactory(cx);
              MLP model = factory.createModel(options)) {
             train(model);
+
+            if (Assertion.assertionEnabled) {
+                FloatPtr weights0 = Objects.requireNonNull(FloatPtr.checked(model.weightBufferList.getFirst().mapped));
+                FloatPtr biases0 = Objects.requireNonNull(FloatPtr.checked(model.biasBufferList.getFirst().mapped));
+                FloatPtr weights1 = Objects.requireNonNull(FloatPtr.checked(model.weightBufferList.getLast().mapped));
+                FloatPtr biases1 = Objects.requireNonNull(FloatPtr.checked(model.biasBufferList.getLast().mapped));
+
+                logger.info("第一层权重: (" + weights0.read(0) + ", " + weights0.read(1) + "), (" + weights0.read(2) + ", " + weights0.read(3) + ")");
+                logger.info("第一层偏置: " + biases0.read(0) + ", " + biases0.read(1));
+                logger.info("第二层权重: (" + weights1.read(0) + ", " + weights1.read(1) + ")");
+                logger.info("第二层偏置: " + biases1.read(0));
+            }
+
             // loadWeight(model);
             infer(model);
         }
@@ -90,7 +104,7 @@ final class XOR_Application implements AutoCloseable {
 
             trainTask.prewarm();
             long startTime = System.nanoTime();
-            for (int i = 0; i < 5000; i++) {
+            for (int i = 0; i < 4000; i++) {
                 for (int j = 0; j < inputData.length / 2; j += batchSize) {
                     trainTask.executeBatch(j, 0.1f);
                 }
