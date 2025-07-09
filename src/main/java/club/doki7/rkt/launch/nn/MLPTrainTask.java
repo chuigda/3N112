@@ -77,6 +77,10 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
 
         Buffer.OptionsInit optionsInit = new Buffer.OptionsInit();
         optionsInit.usage = Set.of(Buffer.Usage.STORAGE_BUFFER);
+        if (Assertion.assertionEnabled) {
+            optionsInit.mapped = true;
+            optionsInit.coherent = true;
+        }
         Buffer.Options storageOnlyOptions = optionsInit.build();
 
         optionsInit.usage = Set.of(Buffer.Usage.UNIFORM_BUFFER);
@@ -400,6 +404,41 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
                 inputSize = layer.size;
                 inputPerceptronWorkgroupSize = layer.perceptronWorkgroupSize;
             }
+            // endregion
+
+            // region make sure the weight and biases updates are visible
+            VkBufferMemoryBarrier.Ptr barriers = VkBufferMemoryBarrier.allocate(arena, mlp.options.layers.size() * 2L);
+            for (int i = 0; i < mlp.options.layers.size(); i++) {
+                Buffer weightBuffer = mlp.weightBufferList.get(i);
+                Buffer biasBuffer = mlp.biasBufferList.get(i);
+
+                barriers.at(i * 2L, it -> it
+                        .srcAccessMask(VkAccessFlags.SHADER_WRITE)
+                        .dstAccessMask(VkAccessFlags.SHADER_READ)
+                        .srcQueueFamilyIndex(VkConstants.QUEUE_FAMILY_IGNORED)
+                        .dstQueueFamilyIndex(VkConstants.QUEUE_FAMILY_IGNORED)
+                        .buffer(weightBuffer.handle)
+                        .offset(0)
+                        .size(weightBuffer.size));
+                barriers.at(i * 2L + 1, it -> it
+                        .srcAccessMask(VkAccessFlags.SHADER_WRITE)
+                        .dstAccessMask(VkAccessFlags.SHADER_READ)
+                        .srcQueueFamilyIndex(VkConstants.QUEUE_FAMILY_IGNORED)
+                        .dstQueueFamilyIndex(VkConstants.QUEUE_FAMILY_IGNORED)
+                        .buffer(biasBuffer.handle)
+                        .offset(0)
+                        .size(biasBuffer.size));
+            }
+
+            cx.dCmd.cmdPipelineBarrier(
+                    cmdBuf.handle,
+                    VkPipelineStageFlags.COMPUTE_SHADER,
+                    VkPipelineStageFlags.COMPUTE_SHADER,
+                    0x0,
+                    0, null,
+                    mlp.options.layers.size() * 2, barriers,
+                    0, null
+            );
             // endregion
 
             @EnumType(VkResult.class) int result = cx.dCmd.endCommandBuffer(cmdBuf.handle);

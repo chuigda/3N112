@@ -8,6 +8,7 @@ import club.doki7.ffm.ptr.BytePtr;
 import club.doki7.rkt.exc.RenderException;
 import club.doki7.rkt.exc.VulkanException;
 import club.doki7.rkt.shaderc.ShaderCompiler;
+import club.doki7.rkt.util.Assertion;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.common.ShaderStage;
 import club.doki7.rkt.vk.desc.DescriptorKind;
@@ -72,6 +73,10 @@ public final class MLPFactory implements AutoCloseable {
     public MLP createModel(MLPOptions options) throws RenderException {
         Buffer.OptionsInit storageOptionsInit = new Buffer.OptionsInit();
         storageOptionsInit.usage = Set.of(Buffer.Usage.STORAGE_BUFFER, Buffer.Usage.TRANSFER_DST);
+        if (Assertion.assertionEnabled) {
+            storageOptionsInit.mapped = true;
+            storageOptionsInit.coherent = true;
+        }
         Buffer.Options stroageOptions = storageOptionsInit.build();
 
         List<Buffer> weightBufferList = new ArrayList<>();

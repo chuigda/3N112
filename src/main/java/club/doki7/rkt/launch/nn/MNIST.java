@@ -52,9 +52,9 @@ final class MNIST_Application implements AutoCloseable {
         MLPOptions options = new MLPOptions(
                 MNIST_IMAGE_SIZE,
                 List.of(
-                        new MLPOptions.Layer(300, Activation.SIGMOID, 32),
+                        new MLPOptions.Layer(300, Activation.RELU, 32),
                         new MLPOptions.Layer(100, Activation.SIGMOID, 32),
-                        new MLPOptions.Layer(10, Activation.LINEAR, 2)
+                        new MLPOptions.Layer(10, Activation.LINEAR, 3)
                 ),
                 true
         );
@@ -68,7 +68,7 @@ final class MNIST_Application implements AutoCloseable {
 
     private void train(MLP model) throws RenderException, IOException {
         final int trainDataSize = 60_000;
-        final int batchSize = 64;
+        final int batchSize = 32;
 
         byte[] inputData = Files.readAllBytes(Path.of("resc", "nn", "train-images-idx3-ubyte.bin"));
         assert inputData.length == MNIST_IMAGE_SIZE * trainDataSize + MNIST_IMAGE_FILE_HEADER_SIZE;
@@ -101,7 +101,7 @@ final class MNIST_Application implements AutoCloseable {
             for (int i = 0; i < 10; i++) {
                 long startTime = System.nanoTime();
                 for (int j = 0; j < trainDataSize; j += batchSize) {
-                    trainTask.executeBatch(j, 0.01f);
+                    trainTask.executeBatch(j, 0.02f);
                 }
                 long endTime = System.nanoTime();
 

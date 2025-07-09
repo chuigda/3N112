@@ -44,7 +44,7 @@ final class XOR_Application implements AutoCloseable {
         MLPOptions options = new MLPOptions(
                 2,
                 List.of(
-                        new MLPOptions.Layer(2, Activation.SIGMOID, 2),
+                        new MLPOptions.Layer(2, Activation.RELU, 2),
                         new MLPOptions.Layer(1, Activation.SIGMOID, 1)
                 ),
                 true
@@ -59,7 +59,7 @@ final class XOR_Application implements AutoCloseable {
     }
 
     private void train(MLP model) throws RenderException {
-        final int batchSize = 1;
+        final int batchSize = 4;
 
         float[] inputData = {
                 0.0f, 0.0f,
@@ -89,14 +89,14 @@ final class XOR_Application implements AutoCloseable {
             labelMapped.write(labelData);
 
             trainTask.prewarm();
-            for (int i = 0; i < 10; i++) {
-                long startTime = System.nanoTime();
+            long startTime = System.nanoTime();
+            for (int i = 0; i < 5000; i++) {
                 for (int j = 0; j < inputData.length / 2; j += batchSize) {
-                    trainTask.executeBatch(j, 0.01f);
+                    trainTask.executeBatch(j, 0.1f);
                 }
-                long endTime = System.nanoTime();
-                logger.info("第 " + (i + 1) + " 轮训练耗时: " + (endTime - startTime) / 1000_000 + " ms");
             }
+            long endTime = System.nanoTime();
+            logger.info("训练耗时: " + (endTime - startTime) / 1000_000 + " ms");
         }
     }
 
