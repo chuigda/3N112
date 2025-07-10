@@ -11,12 +11,13 @@ import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 
+
 # region meta-parameters setup
 SEED = 42
 DATA_SIZE = 2000
 BATCH_SIZE = 64
 LEARNING_RATE = 0.05
-EPOCHS = 100
+EPOCHS = 50
 # endregion
 
 
@@ -27,6 +28,22 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(SEED)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+# endregion
+
+
+# region data saver
+def save_data(input_np, label_np, filename_prefix: str):
+    """
+    save inputs and labels tensors to two raw binary (.bin) files
+    """
+    inputs_path = f"{filename_prefix}_inputs.bin"
+    labels_path = f"{filename_prefix}_labels.bin"
+
+    input_np.astype(np.float32).tofile(inputs_path)
+    label_np.astype(np.uint8).tofile(labels_path)
+
+    print(f"数据已保存到 {inputs_path} 和 {labels_path}。")
+
 # endregion
 
 
@@ -46,6 +63,7 @@ train_loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 print(f"数据准备完毕，总共 {len(dataset)} 个样本。")
 print(f"输入数据的一个样本: {inputs_tensor[0].numpy()}")
 print(f"对应标签: {labels_tensor[0].numpy()}")
+save_data(inputs_np, labels_np, "sqx_train")
 # endregion
 
 
@@ -53,24 +71,59 @@ print(f"对应标签: {labels_tensor[0].numpy()}")
 class SimpleClassifier(nn.Module):
     def __init__(self):
         super(SimpleClassifier, self).__init__()
-        self.layer1 = nn.Linear(2, 16)
-        self.activation1 = nn.ReLU()
-        self.layer2 = nn.Linear(16, 16)
-        self.activation2 = nn.ReLU()
-        self.output_layer = nn.Linear(16, 2)
+        self.layers = nn.Sequential(
+            nn.Linear(2, 16),
+            nn.ReLU(),
+            nn.Linear(16, 16),
+            nn.ReLU(),
+            nn.Linear(16, 2)
+        )
 
     def forward(self, x):
-        x = self.layer1(x)
-        x = self.activation1(x)
-        x = self.layer2(x)
-        x = self.activation2(x)
-        x = self.output_layer(x)
-        return x
+        return self.layers(x)
+
+    def inspect(self):
+        print("\n--- Inspecting Model Parameters and Gradients ---")
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                print(f"Parameter: {name}")
+                print("  - Data:\n", param.data)
+                if param.grad is not None:
+                    print("  - Gradients:\n", param.grad)
+                else:
+                    print("  - Gradients: None")
+                print("-" * 30)
+
+    def save(self, filename_prefix: str):
+        layer_indices = [0, 2, 4]
+        layer_names = ["L1", "L2", "L3"]
+
+        print(self.layers)
+        for yndex, name in zip(layer_indices, layer_names):
+            layer = self.layers[yndex]
+            weights = layer.weight.data.cpu().numpy()
+            biases = layer.bias.data.cpu().numpy()
+
+            weights_flat = weights.flatten()
+
+            weights_filename = f"{filename_prefix}_weights_{name}.bin"
+            biases_filename = f"{filename_prefix}_biases_{name}.bin"
+
+            weights_flat.astype(np.float32).tofile(weights_filename)
+            biases.astype(np.float32).tofile(biases_filename)
+
+            print(f"已保存: {weights_filename} (大小: {weights_flat.size} 个浮点数)")
+            print(f"已保存: {biases_filename} (大小: {biases.size} 个浮点数)")
 
 
 model = SimpleClassifier()
 print("\n模型结构:")
 print(model)
+# endregion
+
+
+# region save initialized but not trained model
+model.save("sqx_initial")
 # endregion
 
 
@@ -98,6 +151,7 @@ for epoch in range(EPOCHS):
         print(f"Epoch [{epoch+1}/{EPOCHS}], Loss: {running_loss / len(train_loader):.4f}")
 
 print("训练完成！")
+model.save("sqx_trained")
 # endregion
 
 
@@ -115,6 +169,7 @@ test_labels_tensor = torch.tensor(test_labels_np, dtype=torch.long)
 print(f"测试准备完毕，总共 {len(test_y_data)} 个样本。")
 print(f"输入数据的一个样本: {test_inputs_tensor[0].numpy()}")
 print(f"对应标签: {test_labels_tensor[0].numpy()}")
+save_data(test_inputs_np, test_labels_np, "sqx_test")
 
 model.eval()
 
@@ -124,5 +179,5 @@ with torch.no_grad():
     correct_predictions = (predicted_classes == test_labels_tensor).sum().item()
     accuracy = 100 * correct_predictions / TEST_DATA_SIZE
 
-    print(f"模型在全新测试集上的准确率为: {accuracy:.2f}%")
+    print(f"模型在全新测试集上的准确率为: {accuracy}%")
 # endregion
