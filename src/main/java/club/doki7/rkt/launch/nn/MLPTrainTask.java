@@ -34,6 +34,8 @@ import java.util.Objects;
 import java.util.Set;
 
 public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
+    public final List<Buffer> gradientBufferList;
+
     public MLPTrainTask(
             MLP mlp,
             int batchSize,
@@ -41,7 +43,7 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
             Buffer labelBuffer,
             LossFunction lossFunction
     ) throws VulkanException {
-        super(mlp, batchSize, inputBuffer, true, false);
+        super(mlp, batchSize, inputBuffer, Assertion.assertionEnabled, Assertion.assertionEnabled);
         this.labelBuffer = labelBuffer;
         this.lossFunction = lossFunction;
 
@@ -172,7 +174,7 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
              Arena arena = Arena.ofConfined()) {
             FloatPtr rand = FloatPtr.allocate(arena);
             if (Assertion.assertionEnabled) {
-                rand.write(0.0f);
+                rand.write(0.5f);
             } else {
                 rand.write((float) Math.random());
             }
@@ -457,7 +459,6 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
 
     private final Buffer updateOptionsBuffer;
 
-    private final List<Buffer> gradientBufferList;
     private final List<PushDescriptorSet> weightsUpdateDescriptorSetList;
     private final List<PushDescriptorSet> backpropDescriptorSetList;
     private final PushDescriptorSet errorDescriptorSet;

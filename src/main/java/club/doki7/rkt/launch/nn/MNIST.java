@@ -105,9 +105,7 @@ final class MNIST_Application implements AutoCloseable {
             trainTask.prewarm();
 
             for (int i = 0; i < 10; i++) {
-                if (Assertion.assertionEnabled) {
-                    Collections.shuffle(batchIds, new Random(0x07210D00));
-                } else {
+                if (!Assertion.assertionEnabled) {
                     Collections.shuffle(batchIds);
                 }
 
