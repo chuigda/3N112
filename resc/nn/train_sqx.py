@@ -40,7 +40,7 @@ def save_data(input_np, label_np, filename_prefix: str):
     labels_path = f"{filename_prefix}_labels.bin"
 
     input_np.astype(np.float32).tofile(inputs_path)
-    label_np.astype(np.uint8).tofile(labels_path)
+    label_np.astype(np.uint32).tofile(labels_path)
 
     print(f"数据已保存到 {inputs_path} 和 {labels_path}。")
 
@@ -146,6 +146,11 @@ for epoch in range(EPOCHS):
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
+
+        if epoch == 0 and i == len(train_loader) - 1:
+            print("在训练完第一个 epoch，最后一个批次后，输出模型信息：")
+            print("模型输出: ", outputs)
+            model.inspect()
 
     if (epoch + 1) % 10 == 0:
         print(f"Epoch [{epoch+1}/{EPOCHS}], Loss: {running_loss / len(train_loader):.4f}")
