@@ -3,9 +3,7 @@ package club.doki7.rkt.launch.nn;
 import club.doki7.ffm.library.ILibraryLoader;
 import club.doki7.ffm.library.ISharedLibrary;
 import club.doki7.ffm.ptr.FloatPtr;
-import club.doki7.ffm.ptr.IntPtr;
 import club.doki7.rkt.exc.RenderException;
-import club.doki7.rkt.util.Assertion;
 import club.doki7.rkt.vk.RenderConfig;
 import club.doki7.rkt.vk.RenderContext;
 import club.doki7.rkt.vk.common.QueueFamily;
@@ -60,63 +58,8 @@ final class MNIST_Application implements AutoCloseable {
 
         try (MLPFactory factory = new MLPFactory(cx);
              MLP model = factory.createModel(options)) {
-            train(model);
-            // loadWeights(model);
+            loadWeights(model);
             infer(model);
-        }
-    }
-
-    private void train(MLP model) throws RenderException, IOException {
-        final int trainDataSize = 60_000;
-        final int batchSize = 64;
-
-        byte[] inputData = Files.readAllBytes(Path.of("resc", "nn", "train-images-idx3-ubyte.bin"));
-        assert inputData.length == MNIST_IMAGE_SIZE * trainDataSize + MNIST_IMAGE_FILE_HEADER_SIZE;
-
-        byte[] labelData = Files.readAllBytes(Path.of("resc", "nn", "train-labels-idx1-ubyte.bin"));
-        assert labelData.length == trainDataSize + MNIST_LABEL_FILE_HEADER_SIZE;
-
-        List<Integer> batchIds = new ArrayList<>();
-        for (int i = 0; i < trainDataSize; i += batchSize) {
-            batchIds.add(i);
-        }
-
-        Buffer.Options ioBufferOptions = Buffer.OptionsInit.shaderStorageBufferPreset().build();
-        try (Buffer inputBuffer = Buffer.create(cx, trainDataSize * MNIST_IMAGE_SIZE * Float.BYTES, false, ioBufferOptions);
-             Buffer labelBuffer = Buffer.create(cx, trainDataSize * Integer.BYTES, false, ioBufferOptions);
-             MLPTrainTask trainTask = new MLPTrainTask(model, batchSize, inputBuffer, labelBuffer, LossFunction.CROSS_ENTROPY);
-             Arena arena = Arena.ofConfined()) {
-
-            FloatPtr normalisedInput = FloatPtr.allocate(arena, inputData.length - MNIST_IMAGE_FILE_HEADER_SIZE);
-            for (int i = MNIST_IMAGE_FILE_HEADER_SIZE; i < inputData.length; i++) {
-                normalisedInput.write(i - MNIST_IMAGE_FILE_HEADER_SIZE, (inputData[i] & 0xFF) / 255.0f);
-            }
-            assert normalisedInput.size() == trainDataSize * MNIST_IMAGE_SIZE;
-
-            IntPtr normalisedOutput = IntPtr.allocate(arena, labelData.length - MNIST_LABEL_FILE_HEADER_SIZE);
-            for (int i = MNIST_LABEL_FILE_HEADER_SIZE; i < labelData.length; i++) {
-                normalisedOutput.write(i - MNIST_LABEL_FILE_HEADER_SIZE, labelData[i] & 0xFF);
-            }
-
-            QueueFamily queueAffinity = cx.hasComputeQueue() ? QueueFamily.COMPUTE : QueueFamily.GRAPHICS;
-            Transmission.uploadBuffer(cx, inputBuffer, normalisedInput.segment(), queueAffinity);
-            Transmission.uploadBuffer(cx, labelBuffer, normalisedOutput.segment(), queueAffinity);
-
-            trainTask.prewarm();
-
-            for (int i = 0; i < 10; i++) {
-                if (!Assertion.assertionEnabled) {
-                    Collections.shuffle(batchIds);
-                }
-
-                long startTime = System.nanoTime();
-                for (int batchId : batchIds) {
-                    trainTask.executeBatch(batchId, 0.01f);
-                }
-                long endTime = System.nanoTime();
-
-                logger.info("第 " + (i + 1) + " 轮训练耗时: " + (endTime - startTime) / 1000_000 + " ms");
-            }
         }
     }
 

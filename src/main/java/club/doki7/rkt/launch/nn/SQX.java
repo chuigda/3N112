@@ -117,8 +117,10 @@ final class SQX_App implements AutoCloseable {
             Transmission.uploadBuffer(cx, labelBuffer, MemorySegment.ofArray(labelData), queueAffinity);
 
             if (Assertion.assertionEnabled) {
+                logger.info("导入由 PyTorch 预热的模型");
                 loadWeight(model, "sqx_initial_");
             } else {
+                logger.info("随机预热模型");
                 trainTask.prewarm();
             }
 

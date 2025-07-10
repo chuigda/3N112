@@ -147,11 +147,6 @@ for epoch in range(EPOCHS):
         optimizer.step()
         running_loss += loss.item()
 
-        if epoch == 0 and i == len(train_loader) - 1:
-            print("在训练完第一个 epoch，最后一个批次后，输出模型信息：")
-            print("模型输出: ", outputs)
-            model.inspect()
-
     if (epoch + 1) % 10 == 0:
         print(f"Epoch [{epoch+1}/{EPOCHS}], Loss: {running_loss / len(train_loader):.4f}")
 

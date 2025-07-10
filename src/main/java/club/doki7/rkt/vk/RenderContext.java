@@ -269,7 +269,7 @@ public final class RenderContext implements AutoCloseable {
 
     public Cleaner.Cleanable registerCleanup(Object item, IDisposeOnContext dispose, boolean local) {
         Cleaner.Cleanable cleanable;
-        if (local) {
+        if (local || surface == null) {
             cleanable = cleaner.register(item, () -> {
                 disposeImmediate(dispose);
                 cleanables.remove(dispose);

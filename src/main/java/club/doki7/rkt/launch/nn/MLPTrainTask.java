@@ -269,7 +269,7 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
         }
     }
 
-    private void inspect(int batchStart) {
+    public void inspect(int batchStart) {
         if (!Assertion.assertionEnabled) {
             throw new IllegalStateException("仅在启用断言时可调用此方法");
         }
@@ -304,7 +304,9 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
         }
 
         logger.info("-------- INFODUMP --------");
-        for (int i = 0; i < outputBufferMappedList.size(); i++) {
+        for (int i = 0; i <  mlp.options.layers.size(); i++) {
+            MLPOptions.Layer layer = mlp.options.layers.get(i);
+
             logger.info("第 " + i + " 层：");
             StringBuilder sb = new StringBuilder();
 
@@ -323,8 +325,30 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
                 sb.append(value).append(", ");
             }
             logger.info("  - 偏置缓冲区 " + i + " 映射内容: " + sb);
+
+            FloatPtr gradientMapped = gradientBufferMappedList.get(i);
+            logger.info("  - 梯度缓冲区 " + i + " 大小: " + gradientMapped.size());
+            sb.setLength(0);
+            for (float value : gradientMapped) {
+                sb.append(value).append(", ");
+            }
+            logger.info("  - 梯度缓冲区 " + i + " 映射内容: " + sb);
+            sb.setLength(0);
+            for (int perceptronId = 0; perceptronId < layer.size; perceptronId++) {
+                float biasGradientSum = 0.0f;
+                for (int batchId = 0; batchId < ehtotBatchSize; batchId++) {
+                    int index = batchId * layer.size + perceptronId;
+                    float errorSignal = gradientMapped.read(index);
+                    biasGradientSum += errorSignal;
+                }
+
+                float avgBiasGradient = biasGradientSum / ehtotBatchSize;
+                sb.append(avgBiasGradient).append(", ");
+            }
+            logger.info("  - 梯度缓冲区 " + i + " 映射内容（预计算）: " + sb);
         }
 
+        logger.info("最终:");
         FloatPtr lastOutputMapped = outputBufferMappedList.getLast();
         int lastOutputSize = mlp.options.layers.getLast().size;
         logger.info("  - 最后一层输出缓冲区大小: " + lastOutputMapped.size());
@@ -334,29 +358,6 @@ public final class MLPTrainTask extends MLPTaskBase implements AutoCloseable {
             sb.append(output).append(", ");
         }
         logger.info("  - 最后一层输出缓冲区映射内容: " + sb);
-
-        FloatPtr lastGradientMapped = gradientBufferMappedList.getLast();
-        int lastLayerPerceptronCount = mlp.options.layers.getLast().size;
-        logger.info("  - 最后一层梯度缓冲区大小: " + lastGradientMapped.size());
-        sb.setLength(0);
-        for (float value : lastGradientMapped) {
-            sb.append(value).append(", ");
-        }
-        logger.info("  - 最后一层梯度缓冲区映射内容: " + sb);
-
-        sb.setLength(0);
-        for (int i = 0; i < lastLayerPerceptronCount; i++) {
-            float biasGradientSum = 0.0f;
-            for (int j = 0; j < ehtotBatchSize; j++) {
-                int index = j * lastLayerPerceptronCount + i;
-                float errorSignal = lastGradientMapped.read(index);
-                biasGradientSum += errorSignal;
-            }
-
-            float avgBiasGradient = biasGradientSum / ehtotBatchSize;
-            sb.append(avgBiasGradient).append(", ");
-        }
-        logger.info("  - 最后一层梯度缓冲区映射内容（预计算）: " + sb);
         logger.info("-------- ENDODUMP --------");
     }
 
